@@ -1,0 +1,83 @@
+<!doctype html><html lang="ko"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="color-scheme" content="dark"><title>BYBIT FUTURES | PREMIUM v3.2</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<div id="terminal">
+  <header class="topbar">
+    <div class="brand"><div class="brand-bars"><i></i><i></i><i></i></div><div><div class="brand-main"><b>BYBIT</b> <span>FUTURES</span><em>│</em><strong>PREMIUM v3.2</strong></div><div class="brand-sub">AI CRYPTO TRADING TERMINAL <span>· 실시간 분석 기반 매매 후보</span></div></div></div>
+    <nav class="topnav" id="topnav">
+      <button class="navitem active" data-page="home"><span class="navico">⌂</span><small>홈</small></button>
+      <button class="navitem" data-page="analysis"><span class="navico">◈</span><small>AI 분석</small></button>
+      <button class="navitem" data-page="market"><span class="navico">▥</span><small>시장지표</small></button>
+      <button class="navitem" data-page="backtest"><span class="navico">◎</span><small>백테스트</small></button>
+      <button class="navitem" data-page="paper"><span class="navico">▣</span><small>모의매매</small></button>
+      <button class="navitem" data-page="alerts"><span class="navico">♧</span><small>알림</small></button>
+      <button class="navitem" data-page="settings"><span class="navico">⚙</span><small>설정</small></button>
+    </nav>
+    <div class="livebox"><div><span id="statusDot" class="dot warn"></span><strong id="statusText">API 연결 중</strong></div><small id="lastUpdate">실제 Bybit 공개 API</small></div>
+    <button class="fullscreen-btn" id="fullscreenBtn" title="전체 화면">⛶</button>
+  </header>
+
+  <section class="main-layout">
+    <aside class="market-panel panel">
+      <div class="market-tabs"><button id="allTab" class="selected">▤ 전체시장</button><button id="favTab">☆ 관심종목</button></div>
+      <div class="market-search"><span>⌕</span><input id="searchSymbol" type="search" placeholder="전체 종목 검색 (BTC, ETH...)" autocomplete="off"><button id="clearSearch" title="검색 초기화">×</button></div>
+      <div class="market-heading"><span id="marketCount">USDT 무기한 선물</span><button id="sortPrice" title="가격순 정렬">현재가</button><button id="sortChange" class="sort-active" title="등락률 정렬">등락률 <b id="sortIcon">↓</b></button></div>
+      <div class="sort-controls"><button data-sort="change-desc" class="selected">상승순 ↓</button><button data-sort="change-asc">하락순 ↑</button><button data-sort="volume-desc">거래대금순</button></div>
+      <div id="marketList" class="market-list"><div class="list-placeholder">Bybit 전체 종목 조회 중…</div></div>
+      <div class="market-foot"><span id="visibleCount">조회 대기</span><button id="marketReload">↻ 새로고침</button></div>
+    </aside>
+
+    <main class="chart-panel panel">
+      <section class="instrument-head">
+        <div class="instrument-title"><div class="coin-logo large" id="heroLogo">₿</div><div class="instrument-names"><div><strong id="symbolTitle">BTCUSDT</strong><button id="heroFav" class="star-btn" title="즐겨찾기">☆</button></div><small>BYBIT USDT 무기한 선물</small></div></div>
+        <div class="instrument-price"><strong id="currentPrice">--</strong><span id="priceChange" class="negative">--</span></div>
+        <div class="instrument-24h"><div><small>24H 고가</small><b id="high24">--</b></div><div><small>24H 저가</small><b id="low24">--</b></div><div><small>24H 거래대금</small><b id="volume24">--</b></div></div>
+      </section>
+      <section class="chart-toolbar"><div class="timeframe" id="timeframes">
+        <button data-tf="1">1분</button><button data-tf="3">3분</button><button data-tf="5">5분</button><button data-tf="15" class="selected">15분</button><button data-tf="30">30분</button><button data-tf="60">1시간</button><button data-tf="240">4시간</button><button data-tf="D">1일</button><button data-tf="M">1월</button>
+      </div><div class="charttools"><button id="overlayBtn" class="tool-selected">AI 가격선 ON</button><button id="lineMode" title="LONG / SHORT / 전체 전환">전체선 ▼</button><button id="emaBtn" class="tool-selected">EMA</button><button id="zoomOut" title="축소">−</button><button id="zoomIn" title="확대">＋</button><button id="fitChart" title="전체 보기">⤢</button><button id="liveChart" title="최신 시점으로 복귀">◉ 최신</button></div></section>
+      <div class="chart-wrap" id="chartWrap"><div id="chartHistoryStatus" class="chart-history-status" aria-live="polite"></div><div class="chart-caption"><span><i class="legend-line ema20"></i>EMA20 <b id="ema20Label">--</b></span><span><i class="legend-line ema50"></i>EMA50 <b id="ema50Label">--</b></span><span class="chart-tip" id="chartStatus">캔들 데이터 대기</span></div><canvas id="priceChart"></canvas><div class="floating-tooltip" id="chartTooltip"></div></div>
+      <div class="oscillator rsi-area"><div class="osc-label">RSI(14) <b id="rsiLabel">--</b></div><canvas id="rsiChart"></canvas></div>
+      <div class="oscillator macd-area"><div class="osc-label">MACD(12,26,9) <b id="macdLabel">--</b></div><canvas id="macdChart"></canvas></div>
+      <div class="metric-strip">
+        <div class="metric"><small>EMA 추세</small><strong id="metricTrend">--</strong><span id="metricTrendDetail">데이터 대기</span></div>
+        <div class="metric"><small>RSI(14)</small><strong id="metricRsi">--</strong><span id="metricRsiDetail">--</span></div>
+        <div class="metric"><small>ATR(14)</small><strong id="metricAtr">--</strong><span>변동성 지표</span></div>
+        <div class="metric"><small>거래량(봉)</small><strong id="metricVolume">--</strong><span>직전 완성봉 대비</span></div>
+        <div class="metric"><small>OI 변동</small><strong id="metricOi">--</strong><span>최근 5분 데이터</span></div>
+        <div class="metric"><small>펀딩비</small><strong id="metricFunding">--</strong><span>현재 공개 값</span></div>
+        <div class="metric"><small>지지 / 저항</small><strong id="metricLevels">--</strong><span>최근 48개 봉</span></div>
+      </div>
+    </main>
+
+    <aside class="analysis-panel panel">
+      <div class="side-title">◈ <b>AI 종합 판단</b> <small>정량 분석</small></div>
+      <div id="verdict" class="verdict wait"><strong id="verdictText">WAIT</strong><span id="verdictReason">실제 시장 데이터 확인 중</span></div>
+      <div class="strategy long"><div class="strategy-head"><strong>▲ LONG (매수) 후보</strong><span id="longState">조건 대기</span></div>
+        <div class="strategy-grid"><span>진입가</span><b id="longEntry">--</b><span>TP1 (1차 익절)</span><b id="longTp1">--</b><span>TP2 (2차 익절)</span><b id="longTp2">--</b><span>손절가 (SL)</span><b id="longSl">--</b><span>손절 폭</span><b id="longLoss">--</b><span>위험/보상 (R:R)</span><b id="longRR">--</b></div>
+        <div class="strategy-note" id="longReason">분석 데이터 대기</div>
+      </div>
+      <div class="strategy short"><div class="strategy-head"><strong>▼ SHORT (매도) 후보</strong><span id="shortState">조건 대기</span></div>
+        <div class="strategy-grid"><span>진입가</span><b id="shortEntry">--</b><span>TP1 (1차 익절)</span><b id="shortTp1">--</b><span>TP2 (2차 익절)</span><b id="shortTp2">--</b><span>손절가 (SL)</span><b id="shortSl">--</b><span>손절 폭</span><b id="shortLoss">--</b><span>위험/보상 (R:R)</span><b id="shortRR">--</b></div>
+        <div class="strategy-note" id="shortReason">분석 데이터 대기</div>
+      </div>
+      <div class="duration-panel"><div class="block-title">◷ AI 매매 기간 분석 <small>다중 시간봉</small></div>
+        <div id="durationTypes" class="duration-types"><span>단타 --</span><span>당일 --</span><span>스윙 --</span></div>
+        <div id="durationReason" class="strategy-note">상위 시간봉 분석 대기</div>
+      </div>
+      <div class="risk-panel"><div class="block-title">⚖ 레버리지 위험 시뮬레이션 <small id="maxLevLabel">종목 배율 확인 중</small></div>
+        <div class="risk-inputs"><label>배율 <strong id="leverageDisplay">10x</strong><input id="leverageRange" type="range" min="1" max="100" value="10"></label><label>증거금 USDT <input id="marginInput" type="number" min="1" step="10" value="100"></label><label>허용손실 USDT <input id="lossBudgetInput" type="number" min="1" step="5" value="10"></label><label>증거금 방식 <select id="marginMode"><option value="isolated">격리</option><option value="cross">교차</option></select></label></div>
+        <div class="risk-results" id="riskResults">계산용 입력값을 선택해 주세요.</div><div class="risk-disclaimer">※ 청산가는 실제 계정의 유지증거금·잔고 정보가 없어 산출하지 않음. 참고용 손익 추정이며 주문 기능 없음.</div>
+      </div>
+      <div class="evidence"><div class="evidence-title">▥ AI 분석 근거 <small id="evidenceTime">--</small></div><div id="evidenceRows"><div class="evidence-row">Bybit 시장 데이터 수집 중…</div></div></div>
+    </aside>
+  </section>
+
+  <footer class="footer"><div class="footer-actions"><button data-page="analysis" class="footer-primary">◎ AI 매매전략</button><button data-page="alerts">♧ 실시간 알림</button><button data-page="paper">▤ 모의매매</button><button data-page="backtest">▥ 성과 리포트</button></div><div class="footer-notice" id="footerNotice">ⓘ 실시간 가격 기반 규칙 분석 · 투자 수익 및 체결 보장 없음 · 주문 전 직접 확인</div></footer>
+</div>
+<div class="overlay hidden" id="overlay"><div class="dialog"><div class="dialog-head"><strong id="dialogTitle">상세 정보</strong><button id="dialogClose">✕</button></div><div id="dialogBody" class="dialog-body"></div></div></div>
+<div class="toast" id="toast"></div>
+<script src="engine.js"></script><script src="stream.js"></script><script src="chart.js"></script><script src="app.js"></script>
+</body></html>

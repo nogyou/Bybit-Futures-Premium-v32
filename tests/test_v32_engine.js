@@ -1,0 +1,28 @@
+'use strict';
+const assert=require('node:assert/strict');
+const E=require('../app/src/main/assets/engine.js');
+const bars=[];let p=61000;
+for(let i=0;i<260;i++){const o=p;p+=Math.sin(i*.11)*49+Math.cos(i*.23)*20+5;bars.push({t:1700000000000+i*900000,o,h:Math.max(o,p)+37,l:Math.min(o,p)-28,c:p,v:130+(i%9)*26});}
+const b5=E.summarizeFrame(bars,'5');
+assert.ok(b5&&Number.isFinite(b5.atr)&&b5.atr>0);
+assert.ok(['LONG','SHORT','WAIT'].includes(b5.trend));
+const b30=E.summarizeFrame(bars.map(x=>({...x,t:x.t*2})),'30');
+const multi=E.evaluateDurations({'5':b5,'15':b5,'30':b30,'60':b30,'240':b5,D:b5});
+assert.equal(multi.plans.length,3);assert.ok(multi.plans.every(p=>p.hold&&p.side));
+const level=E.structuralTargets(bars.slice(0,-1),p-100,p-300,'LONG',90,{'240':b5});
+assert.ok(level.zoneCount>=1,'returns structural candidate levels');
+assert.ok(Number.isFinite(level.tp1)&&level.tp1>p-100,'LONG TP1 from price structure');
+const pos={entry:60000,tp1:60600,tp2:61300,stop:59600};
+const low=E.leverageScenario(pos,'LONG',{leverage:1,margin:100,feeSide:.0006,slipSide:.00025,funding:.0001});
+const high=E.leverageScenario(pos,'LONG',{leverage:100,margin:100,feeSide:.0006,slipSide:.00025,funding:.0001});
+assert.equal(low.notional,100);assert.equal(high.notional,10000);
+assert.ok(high.tp1Pnl>low.tp1Pnl);
+assert.ok(high.tooRisky,'high leverage triggers stop/liquidation proximity warning');
+assert.equal(high.liquidationPrice,null,'never invent account-specific liquidation price');
+assert.ok(high.slPnl<0&&low.slPnl<0);
+assert.equal(E.leverageScenario(pos,'SHORT',{leverage:10,margin:100}).tp1Pnl<0,true,'SHORT target above entry loses money');
+const x=E.analyze(bars,{lastPrice:String(p),fundingRate:'0.0001'},null,null,{tickSize:.1,frames:{'5':b5,'15':b5,'30':b30,'60':b30,'240':b5,D:b5}});
+assert.equal(x.verdict,'WAIT','missing orderbook conservatively forces WAIT');
+assert.ok(x.duration.plans.length===3);
+assert.equal(x.long.targetOrigin,'가격 피벗·매물 반응 구간·피보나치·상위봉');
+console.log('PASS v3.2: multi-timeframe, duration classification, structural TP, 1–100x exposure, liquidation not invented, missing data WAIT');
