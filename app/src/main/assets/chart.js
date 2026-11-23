@@ -45,10 +45,12 @@ const TradeChart = (()=>{
     if(centers.length&&centers.at(-1)>maxLabel){const excess=centers.at(-1)-maxLabel;for(let i=0;i<centers.length;i++)centers[i]-=excess;}
     if(centers.length&&centers[0]<minLabel){const shift=minLabel-centers[0];for(let i=0;i<centers.length;i++)centers[i]+=shift;}
     chosen.forEach((p,i)=>{
-      const exact=Math.max(top,Math.min(top+ch,p.y)),tagY=centers[i],badgeX=w-right+4,badgeW=right-7;
-      if(Math.abs(tagY-exact)>2){stroke(c,p.col,.9,[2,2]);c.beginPath();c.moveTo(w-right,exact);c.lineTo(badgeX+1,tagY);c.stroke();}
+      const exact=Math.max(top,Math.min(top+ch,p.y)),tagY=centers[i],badgeX=left+3,badgeW=42;
+      // Preserve the original 82-candle viewport and price-axis position.
+      // Put compact signal tags at the LEFT, never on the RIGHT price scale.
+      if(Math.abs(tagY-exact)>2){stroke(c,p.col,.85,[2,2]);c.beginPath();c.moveTo(badgeX+badgeW,tagY);c.lineTo(badgeX+badgeW+6,exact);c.stroke();}
       c.fillStyle=p.kind==='LONG'?'#0b493b':'#562638';c.fillRect(badgeX,tagY-6,badgeW,12);
-      label(c,p.kind+' '+p.name+' '+format(p.v),badgeX+3,tagY,p.col,8,'left',true);
+      label(c,(p.kind==='LONG'?'L':'S')+' '+p.name,badgeX+3,tagY,p.col,8,'left',true);
     });
     if(offset===0&&Number.isFinite(current)){const y=yy(current);stroke(c,'#ffcf44',1.4,[3,4]);c.beginPath();c.moveTo(left,y);c.lineTo(w-right,y);c.stroke();c.fillStyle='#ffcc43';c.fillRect(w-right-94,Math.max(top,y-9),88,17);label(c,format(current),w-right-90,Math.max(top,y-9)+8,'#09121f',9,'left',true);}
     for(let i=0;i<=5;i++){const j=Math.min(data.length-1,Math.floor((data.length-1)*i/5)),d=new Date(data[j].t);label(c,d.toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}),xx(j),h-9,colors.muted,9,'center');}

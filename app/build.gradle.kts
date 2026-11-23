@@ -3,11 +3,11 @@ android {
     namespace = "com.bybit.tradeterminal"
     compileSdk = 35
     defaultConfig {
-        applicationId = "com.bybit.tradeterminal.v32"
+        applicationId = "com.bybit.tradeterminal.v323"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "3.2.0-beta1"
+        versionCode = 1
+        versionName = "3.2.3-structural-tp-beta"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

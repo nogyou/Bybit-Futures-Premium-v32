@@ -1,0 +1,31 @@
+'use strict';
+const assert=require('node:assert/strict');
+const E=require('../app/src/main/assets/engine.js');
+const price=60000,c=[];
+for(let i=0;i<241;i++){
+  const cp=price+Math.sin(i*.18)*220+Math.sin(i*.045)*380+(i-120)*1.8;
+  const op=cp+Math.sin(i*.6)*18;
+  c.push({t:1700000000000+i*300000,o:op,c:cp,h:Math.max(op,cp)+35+(i%5)*8,l:Math.min(op,cp)-33-(i%3)*8,v:80+(i%7)*40+(i%27===0?450:0)});
+}
+const closed=c.slice(0,-1);
+const base={support:59400,resistance:60980,levels:[60220,60500,60760,59500,59730],tf:'240'};
+const long=E.structuralTargets(closed,60000,59600,'LONG',105,{'240':base});
+const short=E.structuralTargets(closed,60000,60400,'SHORT',105,{'240':base});
+assert.ok(Number.isFinite(long.tp1)&&Number.isFinite(long.tp2),'LONG targets from actual structures');
+assert.ok(long.tp1>60000&&long.tp2>long.tp1);
+assert.ok(Number.isFinite(short.tp1)&&Number.isFinite(short.tp2),'SHORT targets from actual structures');
+assert.ok(short.tp1<60000&&short.tp2<short.tp1);
+assert.ok(long.tp1Reason.length>0&&long.tp2Reason.length>0&&short.tp1Reason.length>0);
+assert.ok(long.zones.length===2&&long.zones.every(x=>x.reasons.length>0));
+const changedStop=E.structuralTargets(closed,60000,59800,'LONG',105,{'240':base});
+assert.equal(long.tp1,changedStop.tp1,'TP is structure-based, not stop-distance ratio');
+assert.equal(long.tp2,changedStop.tp2,'TP2 also independent of stop-distance ratio');
+const missing=E.structuralTargets([],60000,59600,'LONG',105,{});
+assert.ok(Number.isNaN(missing.tp1)&&Number.isNaN(missing.tp2),'no candles -> no made-up TP');
+const invalid=E.structuralTargets(closed,60000,60800,'LONG',105,{});
+assert.ok(Number.isNaN(invalid.tp1),'invalid SL direction never produces strategy target');
+const live=E.summarizeFrame(c,'5');
+const orderbook={b:Array.from({length:40},(_,i)=>[String(59990-i*.3),'1']),a:Array.from({length:40},(_,i)=>[String(60010+i*.3),i===15?'10':'1'])};
+const book=E.structuralTargets(closed,60000,59700,'LONG',105,{'5':live},orderbook);
+assert.ok(book.tp1>60000&&book.tp2>book.tp1);
+console.log('PASS v3.2.3: LONG/SHORT structural zones, reason evidence, stop independence, insufficient-data gating, optional book');

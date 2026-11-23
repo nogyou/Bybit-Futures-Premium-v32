@@ -79,21 +79,84 @@ const TradeEngine = (() => {
     const eligible=plans.filter(x=>x.covered&&x.side!=='WAIT').sort((a,b)=>(b.agreed/Math.max(b.used,1))-(a.agreed/Math.max(a.used,1)));
     return {plans,preferred:eligible[0]?.key||null,notes:'보유 기간은 확정 예측이 아닌 분석 구간 분류'};
   }
-  function structuralTargets(closed,entry,stop,side,atrValue,multi={}) {
-    const long=side==='LONG',dir=long?1:-1,risk=Math.abs(entry-stop);
-    const ps=pivots(closed,155),v=[...ps.lo,...ps.hi];
-    for(const w of [24,48,96,150]){
-      const span=closed.slice(-w);if(span.length<8)continue;
-      const low=Math.min(...span.map(c=>c.l)),high=Math.max(...span.map(c=>c.h));
-      v.push(low,high);
-      for(const r of [.236,.382,.5,.618,.786])v.push(low+(high-low)*r);
+  // 실제 가격 구조에서 목표 구간을 찾는다. 고정 % / 손절폭 배수로 목표 가격을 만들어내지 않는다.
+  // "거래량 집중 추정"은 Kline의 캔들 거래량을 가격 구간에 분산한 근사치다.
+  // 호가벽은 순간 스냅샷이므로 참고만 하고, 뉴스는 TP 계산에 사용하지 않는다.
+  function structuralTargets(closed,entry,stop,side,atrValue,multi={},orderbook=null){
+    const long=side==='LONG',dir=long?1:-1;
+    if(!Array.isArray(closed)||closed.length<30||!finite(entry,stop,atrValue)||entry<=0||atrValue<=0||
+        (stop-entry)*dir>=0)return {tp1:NaN,tp2:NaN,zoneCount:0,source:'가격 구조 확인 불가',tp1Reason:'확인 가능한 목표 없음',tp2Reason:'확인 가능한 목표 없음',zones:[]};
+    const look=closed.slice(-Math.min(160,closed.length));
+    const avgVolume=avg(look.map(c=>Math.max(0,num(c.v)||0)));
+    const evidence=[];
+    const add=(price,label,weight)=>{if(finite(price,weight)&&price>0&&weight>0&& (price-entry)*dir>Math.max(atrValue*.06,entry*.00007))evidence.push({price,label,weight});};
+    // 확인된 피벗: 양옆 최소 2봉이 지나 확정된 국지 고점(롱)/저점(숏)만 사용한다.
+    for(let i=2;i<look.length-2;i++){
+      const c=look[i];let hit=false;
+      if(long)hit=c.h>=look[i-1].h&&c.h>=look[i-2].h&&c.h>look[i+1].h&&c.h>look[i+2].h;
+      else hit=c.l<=look[i-1].l&&c.l<=look[i-2].l&&c.l<look[i+1].l&&c.l<look[i+2].l;
+      if(hit){const ratio=avgVolume>0?Math.min(3,c.v/avgVolume):1;
+        add(long?c.h:c.l,long?'확정된 국지 고점':'확정된 국지 저점',2.0+ratio*.42+(i>=look.length-64?.5:0));}
     }
-    for(const f of Object.values(multi||{})){if(f&&Array.isArray(f.levels))v.push(...f.levels);}
-    const minGap=Math.max(atrValue*.18,entry*.00015);
-    const filtered=v.filter(x=>Number.isFinite(x)&&x>0&&(x-entry)*dir>minGap).sort((a,b)=>dir*(a-b));
-    const dedup=[];for(const x of filtered){if(!dedup.length||Math.abs(x-dedup.at(-1))>Math.max(atrValue*.32,entry*.00022))dedup.push(x);}
-    // 멀리 있는 목표가를 이론적 R 배수에 맞춰 발명하지 않고 실제 구조 가격만 사용.
-    return {tp1:dedup[0]??NaN,tp2:dedup[1]??NaN,zoneCount:dedup.length,source:'가격 피벗·매물 반응 구간·피보나치·상위봉'};
+    // 최근 여러 길이 구간의 주요 전고점/전저점 및 피보나치 되돌림을 추가한다.
+    for(const w of [24,48,96,160]){
+      const span=look.slice(-w);if(span.length<16)continue;
+      const hi=Math.max(...span.map(c=>c.h)),lo=Math.min(...span.map(c=>c.l));
+      add(long?hi:lo,`${w}봉 ${long?'전고점':'전저점'}`,w>=96?2.5:2.1);
+      for(const f of [.236,.382,.5,.618,.786])add(lo+(hi-lo)*f,`${w}봉 피보나치 ${Math.round(f*1000)/10}%`,.65);
+    }
+    // 실제 거래소의 체결량 가격별 분포(VPVR)가 아니라 캔들 기반 추정 분포이다.
+    const lo=Math.min(...look.map(c=>c.l)),hi=Math.max(...look.map(c=>c.h));
+    if(hi>lo){const bins=64,step=(hi-lo)/bins,vol=Array(bins).fill(0);
+      for(const c of look){const lower=Math.min(c.l,c.h),upper=Math.max(c.l,c.h);const v=Math.max(0,num(c.v)||0);
+        if(!Number.isFinite(v)||!v)continue;
+        const first=clamp(Math.floor((lower-lo)/step),0,bins-1),last=clamp(Math.floor((upper-lo)/step),0,bins-1);
+        const portion=v/(last-first+1);for(let i=first;i<=last;i++)vol[i]+=portion;
+      }
+      const mean=avg(vol),tops=[];
+      for(let i=2;i<bins-2;i++)if(vol[i]>=mean*1.15&&vol[i]>=vol[i-1]&&vol[i]>=vol[i+1]&&vol[i]>=vol[i-2]&&vol[i]>=vol[i+2])tops.push({i,v:vol[i]});
+      tops.sort((a,b)=>b.v-a.v);
+      for(const x of tops.slice(0,8))add(lo+step*(x.i+.5),'캔들 기반 거래량 집중 추정',1.8+Math.min(1.2,x.v/Math.max(mean,1)*.4));
+    }
+    // 상위 시간봉은 우선적으로 상승 목표의 저항 / 하락 목표의 지지에 가중치를 둔다.
+    for(const [tf,f] of Object.entries(multi||{})){
+      if(!f)continue;
+      const name=({'1':'1분','3':'3분','5':'5분','15':'15분','30':'30분','60':'1시간','240':'4시간',D:'일봉',W:'주봉'})[tf]||tf;
+      const major=long?f.resistance:f.support;
+      add(major,`${name} 주요 ${long?'저항':'지지'}`,['60','240','D','W'].includes(tf)?3.0:2.25);
+      if(Array.isArray(f.levels))for(const val of f.levels.slice(-40))add(val,`${name} 가격구조 합류`,.7);
+    }
+    // 매도호가(롱 익절)/매수호가(숏 익절)의 한 시점 스냅샷: 큰 잔량만 제한적으로 반영.
+    const depth=long?orderbook?.a:orderbook?.b;
+    if(Array.isArray(depth)&&depth.length>=5){
+      const rows=depth.map(v=>({price:num(v[0]),qty:num(v[1])})).filter(v=>finite(v.price,v.qty)&&v.price>0&&v.qty>0);
+      const sorted=rows.map(v=>v.price*v.qty).sort((a,b)=>a-b);
+      const median=sorted.length?sorted[Math.floor(sorted.length/2)]:0;
+      if(median>0){
+        for(const item of rows){const multiple=item.price*item.qty/median;
+          if(multiple>=3.5)add(item.price,long?'현재 매도호가 잔량 집중 (일시적)':'현재 매수호가 잔량 집중 (일시적)',Math.min(2.5,1.5+multiple*.1));}
+      }
+    }
+    // ATR 규모의 가격 허용 오차로 가격대 집합을 만들되, 약한 피보나치 값 단독은 TP로 쓰지 않는다.
+    const tolerance=Math.max(atrValue*.26,entry*.00020);
+    const clusters=[];
+    for(const c of evidence.sort((a,b)=>a.price-b.price)){
+      let group=clusters.find(z=>Math.abs(z.price-c.price)<=tolerance);
+      if(!group){group={price:c.price,weighted:c.price*c.weight,total:c.weight,items:[c]};clusters.push(group);}
+      else{group.total+=c.weight;group.weighted+=c.price*c.weight;group.price=group.weighted/group.total;group.items.push(c);}
+    }
+    // 단일 고점/저점이든 다수 근거가 겹치는 가격대든 실제 근거가 있는 가격만 통과.
+    const qualifies=clusters.filter(g=>g.total>=2.35).sort((a,b)=>dir*(a.price-b.price));
+    const selected=[];for(const zone of qualifies){
+      if(selected.length&&Math.abs(zone.price-selected.at(-1).price)<Math.max(atrValue*.43,tolerance*1.15))continue;
+      const keys=[];for(const x of zone.items.sort((a,b)=>b.weight-a.weight))if(!keys.includes(x.label))keys.push(x.label);
+      selected.push({price:zone.price,low:zone.price-tolerance,high:zone.price+tolerance,
+        score:Math.round(zone.total*10)/10,reasons:keys.slice(0,3),reason:keys.slice(0,3).join(' · ')||'가격 구조 근거 없음'});
+      if(selected.length===2)break;
+    }
+    return {tp1:selected[0]?.price??NaN,tp2:selected[1]?.price??NaN,zoneCount:qualifies.length,
+      source:'가격 피벗·전고저점·피보나치·상위봉·캔들 거래량 분포 추정 (고정 비율 미사용)',
+      tp1Reason:selected[0]?.reason||'근접한 구조적 목표 구간 없음',tp2Reason:selected[1]?.reason||'두 번째 구조적 목표 구간 없음',zones:selected};
   }
   function leverageScenario(plan,side,config={}) {
     const leverage=Math.max(1,Math.min(100,Number(config.leverage)||1)),margin=Math.max(0,Number(config.margin)||0);
@@ -134,7 +197,7 @@ const TradeEngine = (() => {
       const baseRisk=Math.max(a*.95,entry*.002);
       const stop=quant(entry-direction*Math.max(baseRisk,structuralStop?Math.abs(entry-structuralStop)+a*.16:0),isLong?'floor':'ceil');
       const risk=Math.abs(entry-stop);
-      const targets=structuralTargets(closed,entry,stop,kind,a,frameSummaries);
+      const targets=structuralTargets(closed,entry,stop,kind,a,frameSummaries,orderbook);
       const tp1=Number.isFinite(targets.tp1)?quant(targets.tp1,isLong?'floor':'ceil'):NaN;
       const tp2=Number.isFinite(targets.tp2)?quant(targets.tp2,isLong?'floor':'ceil'):NaN;
       const cost=entry*2*(feeSide+slipSide);
@@ -156,8 +219,8 @@ const TradeEngine = (() => {
       const confirmed=near&&tickKnown&&!missing&&!canceled&&tfCoverage&&!against&&score.percentage>=64&&candleConfirm&&momentumConfirm&&orderConfirm&&volumeConfirm&&netOk;
       let state='가격대 대기';if(canceled)state='무효 / 취소';else if(confirmed)state='조건부 진입 신호';else if(near)state='가격 도달 · 재확인 WAIT';
       let reason=zone.origin+' · '+(near?'현재 가격이 진입 구간에 근접':'현재 가격이 진입 후보 구간 밖')+' · '+(candleConfirm?'완성봉 방향 확인':'완성봉 방향 미확인');
-      const failed=[];if(!near)failed.push('진입 가격 미도달');if(!tickKnown)failed.push('계약 호가단위 미확인');if(missing)failed.push('호가 미수신');if(!candleConfirm)failed.push('반전봉 미확인');if(!momentumConfirm)failed.push('모멘텀 미확인');if(!orderConfirm)failed.push('호가 우위 부족');if(!volumeConfirm)failed.push('거래량 확인 부족');if(!netOk)failed.push('목표 매물대·순손익비 불충분');if(!tfCoverage)failed.push('다중 시간봉 분석 대기');if(against)failed.push('상위 시간봉 역추세 위험');
-      return {kind,entry,stop,tp1,tp2,targetOrigin:targets.source,risk,lossPct:risk/entry*100,rr:net1,rr2:net2,score:score.percentage,details:score.detail,near,canceled,confirmed,state,reason,failed,distance,against};
+      const failed=[];if(!near)failed.push('진입 가격 미도달');if(!tickKnown)failed.push('계약 호가단위 미확인');if(missing)failed.push('호가 미수신');if(!candleConfirm)failed.push('반전봉 미확인');if(!momentumConfirm)failed.push('모멘텀 미확인');if(!orderConfirm)failed.push('호가 우위 부족');if(!volumeConfirm)failed.push('거래량 확인 부족');if(!netOk)failed.push(!Number.isFinite(tp1)||!Number.isFinite(tp2)?'구조적 익절 목표 미확보':'목표 저항·지지 도달 전 순손익비 불충분');if(!tfCoverage)failed.push('다중 시간봉 분석 대기');if(against)failed.push('상위 시간봉 역추세 위험');
+      return {kind,entry,stop,tp1,tp2,targetOrigin:targets.source,tp1Reason:targets.tp1Reason,tp2Reason:targets.tp2Reason,targetZones:targets.zones,risk,lossPct:risk/entry*100,rr:net1,rr2:net2,score:score.percentage,details:score.detail,near,canceled,confirmed,state,reason,failed,distance,against};
     };
     const long=calc('LONG'),short=calc('SHORT');
     // 시장 신선도/연결 확인은 app.js에서 재차 검사. 서로 반대인 포지션 동시 확정은 피함.

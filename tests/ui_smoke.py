@@ -60,12 +60,30 @@ async def main():
             close(){this.readyState=3;this.onclose?.();}
           };
         }""")
-        for f in ['engine.js','chart.js','stream.js','app.js']:
+        for f in ['engine.js','chart.js','stream.js','app.js','news.js']:
             await page.add_script_tag(content=(ROOT/f).read_text())
         await page.wait_for_function("document.querySelector('#longEntry').textContent !== '--'",timeout=15000)
         assert await page.locator('.market-item').count()==len(SYMS)
         assert await page.locator('#verdictText').inner_text() in ['WAIT','LONG','SHORT']
         assert await page.locator('#longTp1').inner_text()!='--'
+        assert 'TP1:' in await page.locator('#longTargetSummary').inner_text()
+        assert 'TP1·TP2 가격대 선정 근거' in await page.locator('.target-detail').first.locator('summary').inner_text()
+        await page.locator('.target-detail').first.locator('summary').click()
+        assert '고정' not in await page.locator('#longTargetDetail').inner_text()
+        assert 'TP2' in await page.locator('#longTargetDetail').inner_text()
+        await page.locator('.target-detail').first.locator('summary').click()
+        # News UI: simulate trusted parsed RSS metadata (never present it as live news).
+        await page.evaluate('''() => BTCNews.ingestForTest([{
+          title:'비트코인 기사 UI 검증용 가상 헤드라인',source:'TEST · 가상 출처',
+          url:'https://cointelegraph.com/news/btc-ui-test',publishedAt:Date.now()-300000
+        }])''')
+        assert '비트코인 기사 UI 검증' in await page.locator('#btcNewsHeadline').inner_text()
+        await page.locator('#btcNewsTicker').click()
+        assert await page.locator('.news-story').count()==1
+        assert '5분 전' in await page.locator('.news-story-meta').inner_text()
+        await page.locator('#dialogClose').click()
+        assert 'hidden' in (await page.locator('#overlay').get_attribute('class'))
+
         assert await page.locator('#shortSl').inner_text()!='--'
         # WebSocket delta should update selected price without waiting for REST polling.
         await page.wait_for_function("document.querySelector('#currentPrice').textContent.includes('84,999.12')",timeout=5000)
@@ -83,6 +101,15 @@ async def main():
         assert await page.locator('#durationTypes span').count()==3
         await page.locator('#leverageRange').evaluate("el => {el.value='50';el.dispatchEvent(new Event('input',{bubbles:true}));}")
         assert await page.locator('#leverageDisplay').inner_text()=='50x'
+        assert await page.locator('#leverageNumber').input_value()=='50'
+        await page.locator('#leverageNumber').fill('23')
+        await page.locator('#leverageNumber').dispatch_event('change')
+        assert await page.locator('#leverageDisplay').inner_text()=='23x'
+        assert await page.locator('#leverageRange').input_value()=='23'
+        await page.locator('#leverageNumber').fill('150')
+        await page.locator('#leverageNumber').dispatch_event('change')
+        assert await page.locator('#leverageDisplay').inner_text()=='100x'
+        assert await page.locator('#leverageRange').input_value()=='100'
         assert 'TP1' in await page.locator('#riskResults').inner_text()
         await page.locator('#lineMode').click()
         assert 'LONG' in await page.locator('#lineMode').inner_text()

@@ -24,5 +24,5 @@ assert.equal(E.leverageScenario(pos,'SHORT',{leverage:10,margin:100}).tp1Pnl<0,t
 const x=E.analyze(bars,{lastPrice:String(p),fundingRate:'0.0001'},null,null,{tickSize:.1,frames:{'5':b5,'15':b5,'30':b30,'60':b30,'240':b5,D:b5}});
 assert.equal(x.verdict,'WAIT','missing orderbook conservatively forces WAIT');
 assert.ok(x.duration.plans.length===3);
-assert.equal(x.long.targetOrigin,'가격 피벗·매물 반응 구간·피보나치·상위봉');
+assert.ok(x.long.targetOrigin.includes('고정 비율 미사용'));
 console.log('PASS v3.2: multi-timeframe, duration classification, structural TP, 1–100x exposure, liquidation not invented, missing data WAIT');

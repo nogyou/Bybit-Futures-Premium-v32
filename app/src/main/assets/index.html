@@ -1,11 +1,11 @@
 <!doctype html><html lang="ko"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<meta name="color-scheme" content="dark"><title>BYBIT FUTURES | PREMIUM v3.2</title>
+<meta name="color-scheme" content="dark"><title>BYBIT FUTURES | PREMIUM v3.2.3</title>
 <link rel="stylesheet" href="style.css">
 </head><body>
 <div id="terminal">
   <header class="topbar">
-    <div class="brand"><div class="brand-bars"><i></i><i></i><i></i></div><div><div class="brand-main"><b>BYBIT</b> <span>FUTURES</span><em>│</em><strong>PREMIUM v3.2</strong></div><div class="brand-sub">AI CRYPTO TRADING TERMINAL <span>· 실시간 분석 기반 매매 후보</span></div></div></div>
+    <div class="brand"><div class="brand-bars"><i></i><i></i><i></i></div><div><div class="brand-main"><b>BYBIT</b> <span>FUTURES</span><em>│</em><strong>PREMIUM v3.2.3</strong></div><div class="brand-sub">AI CRYPTO TRADING TERMINAL <span>· 실시간 분석 기반 매매 후보</span></div></div></div>
     <nav class="topnav" id="topnav">
       <button class="navitem active" data-page="home"><span class="navico">⌂</span><small>홈</small></button>
       <button class="navitem" data-page="analysis"><span class="navico">◈</span><small>AI 분석</small></button>
@@ -15,6 +15,11 @@
       <button class="navitem" data-page="alerts"><span class="navico">♧</span><small>알림</small></button>
       <button class="navitem" data-page="settings"><span class="navico">⚙</span><small>설정</small></button>
     </nav>
+    <button id="btcNewsTicker" class="btc-news-ticker" type="button" title="최신 비트코인 뉴스 열기" aria-label="비트코인 뉴스 열기">
+      <span class="btc-news-mark">₿ BTC 뉴스 <i id="btcNewsDot" class="btc-news-dot"></i></span>
+      <span class="btc-news-headline" id="btcNewsHeadline">뉴스 목록 확인 중…</span>
+      <small class="btc-news-age" id="btcNewsAge">3분 자동 확인</small>
+    </button>
     <div class="livebox"><div><span id="statusDot" class="dot warn"></span><strong id="statusText">API 연결 중</strong></div><small id="lastUpdate">실제 Bybit 공개 API</small></div>
     <button class="fullscreen-btn" id="fullscreenBtn" title="전체 화면">⛶</button>
   </header>
@@ -57,10 +62,14 @@
       <div id="verdict" class="verdict wait"><strong id="verdictText">WAIT</strong><span id="verdictReason">실제 시장 데이터 확인 중</span></div>
       <div class="strategy long"><div class="strategy-head"><strong>▲ LONG (매수) 후보</strong><span id="longState">조건 대기</span></div>
         <div class="strategy-grid"><span>진입가</span><b id="longEntry">--</b><span>TP1 (1차 익절)</span><b id="longTp1">--</b><span>TP2 (2차 익절)</span><b id="longTp2">--</b><span>손절가 (SL)</span><b id="longSl">--</b><span>손절 폭</span><b id="longLoss">--</b><span>위험/보상 (R:R)</span><b id="longRR">--</b></div>
+        <div class="target-summary" id="longTargetSummary">TP 근거 데이터 대기</div>
+        <details class="target-detail"><summary>TP1·TP2 가격대 선정 근거 자세히</summary><div id="longTargetDetail" class="target-detail-body">분석 전</div></details>
         <div class="strategy-note" id="longReason">분석 데이터 대기</div>
       </div>
       <div class="strategy short"><div class="strategy-head"><strong>▼ SHORT (매도) 후보</strong><span id="shortState">조건 대기</span></div>
         <div class="strategy-grid"><span>진입가</span><b id="shortEntry">--</b><span>TP1 (1차 익절)</span><b id="shortTp1">--</b><span>TP2 (2차 익절)</span><b id="shortTp2">--</b><span>손절가 (SL)</span><b id="shortSl">--</b><span>손절 폭</span><b id="shortLoss">--</b><span>위험/보상 (R:R)</span><b id="shortRR">--</b></div>
+        <div class="target-summary" id="shortTargetSummary">TP 근거 데이터 대기</div>
+        <details class="target-detail"><summary>TP1·TP2 가격대 선정 근거 자세히</summary><div id="shortTargetDetail" class="target-detail-body">분석 전</div></details>
         <div class="strategy-note" id="shortReason">분석 데이터 대기</div>
       </div>
       <div class="duration-panel"><div class="block-title">◷ AI 매매 기간 분석 <small>다중 시간봉</small></div>
@@ -68,7 +77,7 @@
         <div id="durationReason" class="strategy-note">상위 시간봉 분석 대기</div>
       </div>
       <div class="risk-panel"><div class="block-title">⚖ 레버리지 위험 시뮬레이션 <small id="maxLevLabel">종목 배율 확인 중</small></div>
-        <div class="risk-inputs"><label>배율 <strong id="leverageDisplay">10x</strong><input id="leverageRange" type="range" min="1" max="100" value="10"></label><label>증거금 USDT <input id="marginInput" type="number" min="1" step="10" value="100"></label><label>허용손실 USDT <input id="lossBudgetInput" type="number" min="1" step="5" value="10"></label><label>증거금 방식 <select id="marginMode"><option value="isolated">격리</option><option value="cross">교차</option></select></label></div>
+        <div class="risk-inputs"><label>배율 <strong id="leverageDisplay">10x</strong><span class="leverage-controls"><input id="leverageRange" type="range" min="1" max="100" step="1" value="10" aria-label="레버리지 슬라이더"><span class="leverage-entry"><input id="leverageNumber" type="number" inputmode="numeric" min="1" max="100" step="1" value="10" aria-label="레버리지 직접 입력"><span>x</span></span></span></label><label>증거금 USDT <input id="marginInput" type="number" min="1" step="10" value="100"></label><label>허용손실 USDT <input id="lossBudgetInput" type="number" min="1" step="5" value="10"></label><label>증거금 방식 <select id="marginMode"><option value="isolated">격리</option><option value="cross">교차</option></select></label></div>
         <div class="risk-results" id="riskResults">계산용 입력값을 선택해 주세요.</div><div class="risk-disclaimer">※ 청산가는 실제 계정의 유지증거금·잔고 정보가 없어 산출하지 않음. 참고용 손익 추정이며 주문 기능 없음.</div>
       </div>
       <div class="evidence"><div class="evidence-title">▥ AI 분석 근거 <small id="evidenceTime">--</small></div><div id="evidenceRows"><div class="evidence-row">Bybit 시장 데이터 수집 중…</div></div></div>
@@ -79,5 +88,5 @@
 </div>
 <div class="overlay hidden" id="overlay"><div class="dialog"><div class="dialog-head"><strong id="dialogTitle">상세 정보</strong><button id="dialogClose">✕</button></div><div id="dialogBody" class="dialog-body"></div></div></div>
 <div class="toast" id="toast"></div>
-<script src="engine.js"></script><script src="stream.js"></script><script src="chart.js"></script><script src="app.js"></script>
+<script src="engine.js"></script><script src="stream.js"></script><script src="chart.js"></script><script src="app.js"></script><script src="news.js"></script>
 </body></html>
