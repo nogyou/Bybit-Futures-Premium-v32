@@ -1,5 +1,5 @@
 
-name: Build Bybit Futures v3.3.0 APK
+name: Build Bybit Futures v3.3.3 APK
 
 on:
   push:
@@ -15,10 +15,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Apply v3.3.0 source
+      - name: Apply v3.3.3 source
         run: |
-          unzip -o Bybit-Futures-Premium-v3.3.0-Arena-Journal-Source.zip
-          grep -n 'versionName' app/build.gradle.kts | grep '3\.3\.0'
+          unzip -o Bybit-Futures-Premium-v3.3.3-Trade-Quality-Source.zip
+          grep -n 'versionName' app/build.gradle.kts | grep '3\.3\.3'
+          grep -n 'android:label' app/src/main/AndroidManifest.xml
 
       - uses: actions/setup-java@v4
         with:
@@ -38,6 +39,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Bybit-v330-Arena-Journal-debug-APK
+          name: Bybit-v333-Trade-Quality-debug-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
