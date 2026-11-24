@@ -1,11 +1,11 @@
 <!doctype html><html lang="ko"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<meta name="color-scheme" content="dark"><title>BYBIT FUTURES | PREMIUM v3.2.3</title>
+<meta name="color-scheme" content="dark"><title>BYBIT FUTURES | PREMIUM v3.2.7</title>
 <link rel="stylesheet" href="style.css">
 </head><body>
 <div id="terminal">
   <header class="topbar">
-    <div class="brand"><div class="brand-bars"><i></i><i></i><i></i></div><div><div class="brand-main"><b>BYBIT</b> <span>FUTURES</span><em>│</em><strong>PREMIUM v3.2.3</strong></div><div class="brand-sub">AI CRYPTO TRADING TERMINAL <span>· 실시간 분석 기반 매매 후보</span></div></div></div>
+    <div class="brand"><div class="brand-bars"><i></i><i></i><i></i></div><div><div class="brand-main"><b>BYBIT</b> <span>FUTURES</span><em>│</em><strong>PREMIUM v3.2.7</strong></div><div class="brand-sub">AI CRYPTO TRADING TERMINAL <span>· 실시간 분석 기반 매매 후보</span></div></div></div>
     <nav class="topnav" id="topnav">
       <button class="navitem active" data-page="home"><span class="navico">⌂</span><small>홈</small></button>
       <button class="navitem" data-page="analysis"><span class="navico">◈</span><small>AI 분석</small></button>
@@ -59,7 +59,22 @@
 
     <aside class="analysis-panel panel">
       <div class="side-title">◈ <b>AI 종합 판단</b> <small>정량 분석</small></div>
+      <div class="mode-picker" id="modePicker" role="group" aria-label="AI 투자 기간 선택">
+        <button type="button" data-strategy="scalp">⚡ 단타</button><button type="button" data-strategy="short" class="selected">◷ 단기</button><button type="button" data-strategy="long">▥ 장기</button>
+        <div class="mode-context" id="modeContext">단기 · 30분봉 중심 / 1·4시간봉 검토</div>
+        <div class="mode-current" id="modeCurrent" aria-live="polite">실제 시세와 시간봉 분석 자료 확인 중</div>
+      </div>
       <div id="verdict" class="verdict wait"><strong id="verdictText">WAIT</strong><span id="verdictReason">실제 시장 데이터 확인 중</span></div>
+      <section class="dualside-panel" id="dualSidePanel" aria-label="투자 기간별 롱 숏 양방향 비교">
+        <div class="dual-title">⚖ 기간별 LONG / SHORT 비교 <small>점수는 승률이 아님</small></div>
+        <div class="mode-overview" id="modeOverview" aria-live="polite">단타·단기·장기 양방향 분석 자료 수신 중…</div>
+        <div class="dual-columns" id="dualColumns"><div>LONG 자료 대기</div><div>SHORT 자료 대기</div></div>
+        <div class="dual-summary" id="dualSummary">현재가 진입 신호는 독립 확인 조건 충족 시에만 표시됩니다.</div>
+      </section>
+      <div class="trade-alert neutral" id="tradeAlert" role="status" aria-live="polite">
+        <div class="alert-heading"><strong id="tradeAlertTitle">◉ AI TRADE ALERT · 감시 대기</strong><button id="alertBlinkToggle" type="button" title="강한 신호 점멸 켜기/끄기">점멸 켜짐</button></div>
+        <div class="alert-message" id="tradeAlertText">진입 후보 구간 및 수급 확인 중</div><small id="tradeAlertTime">조건 미충족 · 매매 신호 아님</small>
+      </div>
       <div class="strategy long"><div class="strategy-head"><strong>▲ LONG (매수) 후보</strong><span id="longState">조건 대기</span></div>
         <div class="strategy-grid"><span>진입가</span><b id="longEntry">--</b><span>TP1 (1차 익절)</span><b id="longTp1">--</b><span>TP2 (2차 익절)</span><b id="longTp2">--</b><span>손절가 (SL)</span><b id="longSl">--</b><span>손절 폭</span><b id="longLoss">--</b><span>위험/보상 (R:R)</span><b id="longRR">--</b></div>
         <div class="target-summary" id="longTargetSummary">TP 근거 데이터 대기</div>
@@ -72,6 +87,27 @@
         <details class="target-detail"><summary>TP1·TP2 가격대 선정 근거 자세히</summary><div id="shortTargetDetail" class="target-detail-body">분석 전</div></details>
         <div class="strategy-note" id="shortReason">분석 데이터 대기</div>
       </div>
+      <section class="position-panel" id="positionPanel">
+        <div class="position-head"><strong>◎ AI POSITION MANAGER</strong><button id="positionFormToggle" type="button">＋ 포지션 수동 등록</button></div>
+        <div class="position-intro">본인이 실제 체결한 포지션을 기록하면, 현재가와 최신 분석 기준으로 보유·부분익절·청산 검토를 표시해요. 거래소 주문/조회는 하지 않습니다.</div>
+        <div id="positionForm" class="position-form" hidden>
+          <div class="position-fields">
+            <label>종목 <strong id="positionSymbol">BTCUSDT</strong></label>
+            <label>방향 <select id="positionSide"><option value="LONG">LONG</option><option value="SHORT">SHORT</option></select></label>
+            <label>실제 진입가 <input id="positionEntry" type="number" inputmode="decimal" min="0.00000001" step="any" placeholder="직접 입력" /></label>
+            <label>초기 손절가 <input id="positionStop" type="number" inputmode="decimal" min="0.00000001" step="any" placeholder="직접 입력" /></label>
+            <label>증거금 USDT <input id="positionMargin" type="number" min="1" step="any" value="100" /></label>
+            <label>사용 배율 <input id="positionLeverage" type="number" min="1" max="100" step="1" value="10" /></label>
+          </div>
+          <button id="positionSave" type="button" class="position-save">입력한 포지션 추적 시작 (주문 아님)</button>
+          <small>자동 체결 연동이 없습니다. 입력값은 이 앱 기기에만 저장되며, 종료 후 다른 종목을 보고 있는 동안에는 해당 포지션을 실시간 감시하지 않습니다.</small>
+        </div>
+        <div id="positionSummary" class="position-summary" aria-live="polite">등록된 포지션이 없습니다.</div>
+        <div id="positionActions" class="position-actions" hidden>
+          <label>남은 포지션 <select id="positionRemaining"><option value="100">100%</option><option value="75">75%</option><option value="50">50%</option><option value="25">25%</option><option value="10">10%</option></select></label>
+          <button id="positionStopTrack" type="button">추적 종료</button>
+        </div>
+      </section>
       <div class="duration-panel"><div class="block-title">◷ AI 매매 기간 분석 <small>다중 시간봉</small></div>
         <div id="durationTypes" class="duration-types"><span>단타 --</span><span>당일 --</span><span>스윙 --</span></div>
         <div id="durationReason" class="strategy-note">상위 시간봉 분석 대기</div>
@@ -88,5 +124,5 @@
 </div>
 <div class="overlay hidden" id="overlay"><div class="dialog"><div class="dialog-head"><strong id="dialogTitle">상세 정보</strong><button id="dialogClose">✕</button></div><div id="dialogBody" class="dialog-body"></div></div></div>
 <div class="toast" id="toast"></div>
-<script src="engine.js"></script><script src="stream.js"></script><script src="chart.js"></script><script src="app.js"></script><script src="news.js"></script>
+<script src="engine.js"></script><script src="comparison.js"></script><script src="stream.js"></script><script src="chart.js"></script><script src="position.js"></script><script src="app.js"></script><script src="news.js"></script>
 </body></html>

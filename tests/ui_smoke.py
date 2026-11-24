@@ -47,8 +47,10 @@ async def main():
         html=re.sub(r'<link[^>]+stylesheet[^>]*>', '', html)
         await page.set_content(html,wait_until='load')
         await page.add_style_tag(content=(ROOT/'style.css').read_text())
+        # About:blank test harness has no persistent localStorage; shim test-only memory.
+        await page.evaluate("""() => {const memory={};Object.defineProperty(window,'localStorage',{configurable:true,value:{getItem:k=>memory[k]??null,setItem:(k,v)=>memory[k]=String(v),removeItem:k=>delete memory[k]}});} """)
         fixtures={'tickers':{'list':tickers},'instruments-info':{'list':[{'symbol':s+'USDT','quoteCoin':'USDT','status':'Trading','contractType':'LinearPerpetual','priceFilter':{'tickSize':'0.01'},'leverageFilter':{'maxLeverage':'100'}}for s in SYMS],'nextPageCursor':''},'kline':CANDLES,'orderbook':{'b':[[str(prices[0]-i*.2),'5'] for i in range(50)],'a':[[str(prices[0]+i*.2),'4']for i in range(50)]},'open-interest':{'list':[{'timestamp':'1732120000000','openInterest':'101010'},{'timestamp':'1732119700000','openInterest':'100000'}]}}
-        await page.evaluate("""fixtures => {window.fetch=async (url) => { const u=new URL(url); const key=u.pathname.split('/').pop();const v=key==='kline'?{list:fixtures.kline[u.searchParams.get('symbol')]||fixtures.kline['BTCUSDT']}:fixtures[key];return {ok:true, json:async()=>({retCode:0,retMsg:'OK',result:v})};};}""",fixtures)
+        await page.evaluate("""fixtures => {window.__intervalFetches=[];window.fetch=async (url) => { const u=new URL(url);if(u.pathname.endsWith('/kline'))window.__intervalFetches.push(u.searchParams.get('interval')); const key=u.pathname.split('/').pop();const v=key==='kline'?{list:fixtures.kline[u.searchParams.get('symbol')]||fixtures.kline['BTCUSDT']}:fixtures[key];return {ok:true, json:async()=>({retCode:0,retMsg:'OK',result:v})};};}""",fixtures)
         # Local ticker WS stub: only simulates a real-time delta; never contacts an exchange.
         await page.evaluate("""() => {
           window.WebSocket=class {
@@ -60,12 +62,35 @@ async def main():
             close(){this.readyState=3;this.onclose?.();}
           };
         }""")
-        for f in ['engine.js','chart.js','stream.js','app.js','news.js']:
+        for f in ['engine.js','comparison.js','position.js','chart.js','stream.js','app.js','news.js']:
             await page.add_script_tag(content=(ROOT/f).read_text())
         await page.wait_for_function("document.querySelector('#longEntry').textContent !== '--'",timeout=15000)
         assert await page.locator('.market-item').count()==len(SYMS)
         assert await page.locator('#verdictText').inner_text() in ['WAIT','LONG','SHORT']
         assert await page.locator('#longTp1').inner_text()!='--'
+        assert await page.locator('.dual-card').count()==2
+        assert '진입 후보' in await page.locator('.dual-card.long').inner_text()
+        assert '순비용' in await page.locator('.dual-card.short').inner_text()
+        await page.wait_for_function("document.querySelectorAll('#modeOverview button small')[0]?.textContent.includes('L ')",timeout=15000)
+        assert await page.locator('#modeOverview button').count()==3
+        assert await page.locator('#dualSummary').inner_text()
+        # v3.2.5: investment strategy mode is independent of visible chart timeframe.
+        assert await page.locator('[data-strategy="short"]').get_attribute('aria-pressed')=='true'
+        assert '단기' in await page.locator('#modeContext').inner_text()
+        assert '30' in await page.locator('#modeContext').inner_text()
+        assert '30' in await page.evaluate('window.__intervalFetches')
+        assert await page.locator('[data-tf="15"]').get_attribute('class')=='selected'
+        await page.locator('[data-strategy="scalp"]').click()
+        await page.wait_for_function("document.querySelector('[data-strategy=scalp]').getAttribute('aria-pressed')==='true' && document.querySelector('#modeCurrent').textContent.includes('현재가')",timeout=12000)
+        assert '5분봉 중심' in await page.locator('#modeContext').inner_text()
+        assert await page.locator('[data-tf="15"]').get_attribute('class')=='selected'
+        await page.locator('[data-strategy="long"]').click()
+        await page.wait_for_function("document.querySelector('[data-strategy=long]').getAttribute('aria-pressed')==='true' && document.querySelector('#modeCurrent').textContent.includes('현재가')",timeout=12000)
+        assert '일봉 중심' in await page.locator('#modeContext').inner_text()
+        assert 'D' in await page.evaluate('window.__intervalFetches')
+        assert await page.locator('[data-tf="15"]').get_attribute('class')=='selected'
+        await page.locator('[data-strategy="short"]').click()
+        await page.wait_for_function("document.querySelector('[data-strategy=short]').getAttribute('aria-pressed')==='true' && document.querySelector('#modeCurrent').textContent.includes('현재가')",timeout=12000)
         assert 'TP1:' in await page.locator('#longTargetSummary').inner_text()
         assert 'TP1·TP2 가격대 선정 근거' in await page.locator('.target-detail').first.locator('summary').inner_text()
         await page.locator('.target-detail').first.locator('summary').click()
@@ -117,13 +142,30 @@ async def main():
         assert await page.evaluate('TradeChart.getView().offset')==20
         await page.locator('#liveChart').click()
         assert await page.evaluate('TradeChart.getView().offset')==0
+        # v3.2.4: manually register a REAL-user-entered position for advisory tracking only.
+        assert 'AI TRADE ALERT' in await page.locator('#tradeAlert').inner_text()
+        await page.locator('#positionFormToggle').click()
+        assert await page.locator('#positionForm').is_visible()
+        await page.locator('#positionEntry').fill('84999.12')
+        await page.locator('#positionStop').fill('84000')
+        await page.locator('#positionMargin').fill('100')
+        await page.locator('#positionLeverage').fill('20')
+        await page.locator('#positionSave').click()
+        assert 'BTCUSDT LONG' in await page.locator('#positionSummary').inner_text()
+        assert await page.locator('#positionActions').is_visible()
+        await page.locator('#positionRemaining').select_option('50')
+        assert '50% 잔량' in await page.locator('#positionSummary').inner_text()
+        await page.locator('#alertBlinkToggle').click()
+        assert '점멸 꺼짐' in await page.locator('#alertBlinkToggle').inner_text()
         # Test timeframe and symbol selection
         await page.locator('.market-item').filter(has_text='ETHUSDT').first.click()
         await page.wait_for_function("document.querySelector('#symbolTitle').textContent==='ETHUSDT'",timeout=10000)
+        assert '감시 중지' in await page.locator('#positionSummary').inner_text()
         await page.locator('[data-tf="5"]').click()
         assert await page.locator('[data-tf="5"]').get_attribute('class')=='selected'
         await page.locator('.market-item').filter(has_text='BTCUSDT').first.click()
         await page.wait_for_function("document.querySelector('#symbolTitle').textContent==='BTCUSDT'",timeout=10000)
+        assert 'BTCUSDT LONG' in await page.locator('#positionSummary').inner_text()
         await page.wait_for_timeout(150)
         # Mark test-only image unambiguously as non-live.
         await page.evaluate("""() => {const el=document.createElement('div');el.textContent='UI 검증 미리보기 · 가상 테스트 시세 (실거래 데이터 아님)';Object.assign(el.style,{position:'fixed',zIndex:999,left:'50%',bottom:'6px',transform:'translateX(-50%)',background:'#ad7720',color:'#06111e',font:'bold 12px system-ui',padding:'5px 18px',borderRadius:'6px'});document.body.append(el);}""")
@@ -131,7 +173,14 @@ async def main():
         await page.locator('#lineMode').click()
         await page.locator('#lineMode').click()
         assert '전체선' in await page.locator('#lineMode').inner_text()
+        await page.locator('#leverageNumber').fill('10')
+        await page.locator('#leverageNumber').dispatch_event('change')
+        await page.locator('.analysis-panel').evaluate('el=>el.scrollTop=0')
+        await page.wait_for_timeout(200)
         await page.screenshot(path=str(OUTPUT),full_page=True)
+        # Show the manually recorded position manager, independently of the top chart layout.
+        await page.locator('#positionPanel').evaluate("el=>el.scrollIntoView({block:'center',behavior:'instant'})")
+        await page.screenshot(path=str(OUTPUT.parent/'ui-position-preview.png'),full_page=True)
         # Portrait tablet: all panels should stack with zero horizontal viewport overflow.
         await page.set_viewport_size({'width':810,'height':1280})
         await page.wait_for_timeout(350)

@@ -56,3 +56,73 @@
 .target-detail{font-size:9px;color:#8cb6ce;margin:1px 8px 3px}
 .target-detail summary{cursor:pointer;color:#9fc7e2;user-select:none;padding:3px 0}
 .target-detail-body{margin-top:3px;border-left:2px solid #3b6a82;padding:4px 6px;white-space:pre-line;color:#cbddeb;line-height:1.45}
+
+/* v3.2.4 Trade Alert & manually recorded Position Manager: no chart/candle geometry changes */
+.trade-alert{flex-shrink:0;border:1px solid #3b5266;background:#102337;border-radius:8px;padding:6px 9px;min-height:49px}
+.trade-alert .alert-heading{display:flex;align-items:center;justify-content:space-between;gap:5px}
+.trade-alert .alert-heading strong{color:#d9e5ef;font-size:11px}
+.trade-alert .alert-heading button{font-size:9px;color:#aebecb;border:1px solid #52687b;background:#182b3c;border-radius:5px;padding:3px 6px;white-space:nowrap}
+.trade-alert .alert-message{font-size:10px;color:#c8dce6;line-height:1.35;padding-top:2px}
+.trade-alert>small{display:block;color:#93aebd;font-size:9px;margin-top:1px}
+.trade-alert.long{border-color:#3bcf9b;background:#10372e}
+.trade-alert.long .alert-heading strong,.trade-alert.long .alert-message{color:#7df2c0}
+.trade-alert.short{border-color:#f36d85;background:#3a1b2e}
+.trade-alert.short .alert-heading strong,.trade-alert.short .alert-message{color:#ff9bad}
+.trade-alert.alert-blink.long,.trade-alert.alert-blink.short{animation:tradePulse 1.4s ease-in-out infinite}
+@keyframes tradePulse{50%{box-shadow:0 0 0 2px #f2c45e88,inset 0 0 9px #f2c45e33}}
+@media(prefers-reduced-motion:reduce){.trade-alert.alert-blink{animation:none}}
+.position-panel{flex-shrink:0;border:1px solid #47617a;background:linear-gradient(110deg,#112338,#091826);border-radius:8px;padding:8px;min-width:0}
+.position-head{display:flex;align-items:center;justify-content:space-between;gap:7px}
+.position-head strong{color:#ffe19b;font-size:12px;letter-spacing:.3px}
+.position-head button,.position-actions button{color:#bde8f6;background:#18344b;border:1px solid #467791;border-radius:5px;font-size:10px;padding:5px 7px}
+.position-intro{margin-top:4px;color:#91b0c4;font-size:9px;line-height:1.4}
+.position-form{margin-top:8px;border-top:1px solid #2a4d63;padding-top:8px}
+.position-form[hidden],.position-actions[hidden]{display:none}
+.position-fields{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.position-fields label,.position-actions label{display:flex;flex-direction:column;gap:3px;font-size:9px;color:#c2d8e6;min-width:0}
+.position-fields strong{font-size:11px;color:#ffcd63}
+.position-fields input,.position-fields select,.position-actions select{width:100%;min-width:0;color:#f2f8ff;border:1px solid #49637d;background:#0b2235;border-radius:5px;font-size:11px;padding:5px 6px}
+.position-save{width:100%;border:1px solid #f5c35e;background:#55431d;color:#ffeaac;border-radius:5px;margin-top:8px;padding:7px;font-weight:800;font-size:10px}
+.position-form>small{display:block;color:#9dafbc;line-height:1.45;font-size:9px;margin-top:5px}
+.position-summary{margin-top:6px;color:#d9eafa;font-size:10px;line-height:1.45;overflow-wrap:anywhere}
+.position-summary .position-status{padding:6px 8px;border:1px solid #3d637d;background:#0c2538;border-radius:6px;font-weight:800;font-size:12px;margin-bottom:6px}
+.position-summary .position-status.good{color:#77edbc;border-color:#2c795a}.position-summary .position-status.warn{color:#ffda77;border-color:#ad8b43}
+.position-summary .position-status.critical{color:#ff8499;border-color:#df627e}
+.position-numbers{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:4px 0}
+.position-numbers>div{border:1px solid #28465c;border-radius:5px;background:#12273a;padding:5px;min-width:0}
+.position-numbers small{font-size:9px;color:#91b0c4;display:block}.position-numbers b{font-size:11px;color:#e6f3fb;overflow-wrap:anywhere}
+.position-reasons{margin-top:5px;font-size:9px;color:#b5cbdb}.position-footnote{margin-top:4px;font-size:8px;color:#8aa6ba}
+.position-actions{display:flex;justify-content:space-between;align-items:flex-end;gap:8px;margin-top:6px}.position-actions label{flex:1}.position-actions select{width:115px;max-width:100%}
+@media(orientation:portrait), (max-width:889px){.trade-alert{min-height:64px}.trade-alert .alert-heading strong{font-size:13px}.trade-alert .alert-message{font-size:12px}.position-head strong{font-size:13px}.position-intro,.position-summary{font-size:11px}.position-fields label{font-size:11px}.position-fields input{font-size:13px}}
+
+/* v3.2.5: compact trade-horizon selector, no changes to chart sizing/zoom/candle count. */
+.mode-picker{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;flex-shrink:0;border:1px solid #385574;border-radius:8px;background:#0a1a2b;padding:6px}
+.mode-picker button{min-width:0;background:#12283b;border:1px solid #335777;color:#bed6eb;border-radius:5px;padding:8px 4px;font-weight:800;font-size:11px;cursor:pointer}
+.mode-picker button.selected{background:linear-gradient(#473714,#241c0c);border-color:#e3b447;color:#ffe18e;box-shadow:0 0 6px #dcad2455}
+.mode-context,.mode-current{grid-column:1/-1;font-size:10px;line-height:1.3;color:#a7c4dc;overflow-wrap:anywhere}
+.mode-current{color:#f8d88b;border-top:1px solid #2e4356;padding-top:4px}
+.mode-current.ready{color:#65eab1}.mode-current.warning{color:#ffb4bc}
+@media(orientation:portrait), (max-width:889px){.mode-picker button{font-size:14px;padding:11px 6px}.mode-context,.mode-current{font-size:12px}}
+
+/* v3.2.6: investment horizon LONG/SHORT dual comparison. Right panel only: chart untouched. */
+.dualside-panel{border:1px solid #3b5875;border-radius:8px;background:#071a2c;padding:7px;display:flex;flex-direction:column;gap:7px;flex-shrink:0}
+.dual-title{font-size:12px;font-weight:800;color:#e4f0ff;display:flex;align-items:center;justify-content:space-between;gap:4px}
+.dual-title small{color:#839eb6;font-size:9px;font-weight:500}
+.mode-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+.mode-overview button{min-width:0;padding:5px 2px;background:#0e2539;border:1px solid #355570;border-radius:5px;text-align:center;display:flex;flex-direction:column;gap:3px}
+.mode-overview button.active{border-color:#e2b748;background:#32280f}
+.mode-overview button strong{font-size:10px;color:#dbe8fa}
+.mode-overview button span{font-size:10px;color:#ffcb75;font-weight:800}
+.mode-overview button span.long{color:#40e9aa}.mode-overview button span.short{color:#ff758a}
+.mode-overview button small{font-size:8px;color:#9eafc4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dual-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+.dual-card{border:1px solid #35506a;background:#0c2031;border-radius:6px;padding:7px 6px;min-width:0;display:flex;flex-direction:column;gap:5px}
+.dual-card.long{border-color:#21815e}.dual-card.short{border-color:#a23e5a}
+.dual-card h4{margin:0;font-size:12px;color:#6defbb}.dual-card.short h4{color:#ff849c}
+.dual-card .dual-badge{font-size:9px;color:#fff0c1;background:#42351d;padding:3px;border-radius:4px;line-height:1.35}
+.dual-card .dual-badge.ready{background:#124c37;color:#9bffd4}
+.dual-card .dual-row{font-size:9px;display:flex;justify-content:space-between;gap:4px}
+.dual-card .dual-row b{font-variant-numeric:tabular-nums;color:#ecf3fc;text-align:right}
+.dual-card .dual-why{color:#a6c4d8;font-size:9px;line-height:1.35;overflow-wrap:anywhere}
+.dual-summary{border-top:1px solid #2c4960;padding-top:5px;color:#edd19b;font-size:10px;line-height:1.35;overflow-wrap:anywhere}
+@media (orientation:portrait),(max-width:889px){.dual-title{font-size:15px}.dual-card h4{font-size:14px}.dual-card .dual-row,.dual-card .dual-why,.dual-summary{font-size:12px}.mode-overview button{padding:8px 4px}.mode-overview button span{font-size:12px}}

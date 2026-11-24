@@ -79,6 +79,15 @@ const TradeEngine = (() => {
     const eligible=plans.filter(x=>x.covered&&x.side!=='WAIT').sort((a,b)=>(b.agreed/Math.max(b.used,1))-(a.agreed/Math.max(a.used,1)));
     return {plans,preferred:eligible[0]?.key||null,notes:'보유 기간은 확정 예측이 아닌 분석 구간 분류'};
   }
+
+  // Investment horizon and the visible chart timeframe are independent.
+  // These are analysis windows, NOT promised holding periods or expected returns.
+  const STRATEGIES=Object.freeze({
+    scalp:{key:'scalp',title:'단타',anchor:'5',higher:['15','60'],context:['1','3','5','15','60'],hold:'수분~1시간 내외'},
+    short:{key:'short',title:'단기',anchor:'30',higher:['60','240'],context:['5','15','30','60','240'],hold:'수시간~수일 내외'},
+    long:{key:'long',title:'장기',anchor:'D',higher:['240','W'],context:['60','240','D','W'],hold:'수일~수주 내외'}
+  });
+  function strategyConfig(key){return STRATEGIES[key]||STRATEGIES.short;}
   // 실제 가격 구조에서 목표 구간을 찾는다. 고정 % / 손절폭 배수로 목표 가격을 만들어내지 않는다.
   // "거래량 집중 추정"은 Kline의 캔들 거래량을 가격 구간에 분산한 근사치다.
   // 호가벽은 순간 스냅샷이므로 참고만 하고, 뉴스는 TP 계산에 사용하지 않는다.
@@ -184,6 +193,7 @@ const TradeEngine = (() => {
     const funding=finite(num(ticker.fundingRate))?num(ticker.fundingRate):null;
     const factors=weightedSignals({e20,e50,e200,e20prev:e20a[n-5],r,macdHist,macdPrev,vr,imbalance,oidelta,funding});
     const frameSummaries=options.frames||{};const duration=evaluateDurations(frameSummaries);
+    const profile=strategyConfig(options.strategyMode);
     const feeSide=Number.isFinite(options.feeSide)?options.feeSide:.0006;
     const slipSide=Number.isFinite(options.slipSide)?options.slipSide:.00025;
     const calc=(kind)=>{
@@ -213,13 +223,15 @@ const TradeEngine = (() => {
       const volumeConfirm=vr>=1.10;
       const missing=imbalance===null;
       const netOk=Number.isFinite(tp1)&&Number.isFinite(tp2)&&net1>=1.15;
-      const tfCoverage=Object.values(frameSummaries).filter(Boolean).length>=3;
-      const higherDirection=[frameSummaries['240'],frameSummaries.D].filter(Boolean);
-      const against=higherDirection.length>=1&&higherDirection.every(x=>x.trend!==(kind)&&x.trend!=='WAIT');
-      const confirmed=near&&tickKnown&&!missing&&!canceled&&tfCoverage&&!against&&score.percentage>=64&&candleConfirm&&momentumConfirm&&orderConfirm&&volumeConfirm&&netOk;
+      const profileFrames=profile.context.filter(tf=>frameSummaries[tf]);
+      const tfCoverage=profileFrames.length>=Math.min(3,profile.context.length)&&!!frameSummaries[profile.anchor];
+      const higherDirection=profile.higher.map(tf=>frameSummaries[tf]).filter(Boolean);
+      const higherCovered=higherDirection.length>=(profile.key==='long'?2:1);
+      const against=higherCovered&&higherDirection.every(x=>x.trend!==kind&&x.trend!=='WAIT');
+      const confirmed=near&&tickKnown&&!missing&&!canceled&&tfCoverage&&higherCovered&&!against&&score.percentage>=64&&candleConfirm&&momentumConfirm&&orderConfirm&&volumeConfirm&&netOk;
       let state='가격대 대기';if(canceled)state='무효 / 취소';else if(confirmed)state='조건부 진입 신호';else if(near)state='가격 도달 · 재확인 WAIT';
       let reason=zone.origin+' · '+(near?'현재 가격이 진입 구간에 근접':'현재 가격이 진입 후보 구간 밖')+' · '+(candleConfirm?'완성봉 방향 확인':'완성봉 방향 미확인');
-      const failed=[];if(!near)failed.push('진입 가격 미도달');if(!tickKnown)failed.push('계약 호가단위 미확인');if(missing)failed.push('호가 미수신');if(!candleConfirm)failed.push('반전봉 미확인');if(!momentumConfirm)failed.push('모멘텀 미확인');if(!orderConfirm)failed.push('호가 우위 부족');if(!volumeConfirm)failed.push('거래량 확인 부족');if(!netOk)failed.push(!Number.isFinite(tp1)||!Number.isFinite(tp2)?'구조적 익절 목표 미확보':'목표 저항·지지 도달 전 순손익비 불충분');if(!tfCoverage)failed.push('다중 시간봉 분석 대기');if(against)failed.push('상위 시간봉 역추세 위험');
+      const failed=[];if(!near)failed.push('진입 가격 미도달');if(!tickKnown)failed.push('계약 호가단위 미확인');if(missing)failed.push('호가 미수신');if(!candleConfirm)failed.push('반전봉 미확인');if(!momentumConfirm)failed.push('모멘텀 미확인');if(!orderConfirm)failed.push('호가 우위 부족');if(!volumeConfirm)failed.push('거래량 확인 부족');if(!netOk)failed.push(!Number.isFinite(tp1)||!Number.isFinite(tp2)?'구조적 익절 목표 미확보':'목표 저항·지지 도달 전 순손익비 불충분');if(!tfCoverage)failed.push('해당 투자 기간의 다중 시간봉 자료 부족');if(!higherCovered)failed.push('상위 시간봉 자료 부족');if(against)failed.push('상위 시간봉 역추세 위험');
       return {kind,entry,stop,tp1,tp2,targetOrigin:targets.source,tp1Reason:targets.tp1Reason,tp2Reason:targets.tp2Reason,targetZones:targets.zones,risk,lossPct:risk/entry*100,rr:net1,rr2:net2,score:score.percentage,details:score.detail,near,canceled,confirmed,state,reason,failed,distance,against};
     };
     const long=calc('LONG'),short=calc('SHORT');
@@ -229,8 +241,8 @@ const TradeEngine = (() => {
     else if(short.confirmed&&!long.confirmed){verdict='SHORT';vreason='진입 구간 및 독립 확인 조건 충족';}
     else if(long.confirmed&&short.confirmed){verdict='WAIT';vreason='양방향 상충 · 거래 보류';}
     const low48=Math.min(...closed.slice(-48).map(c=>c.l));const high48=Math.max(...closed.slice(-48).map(c=>c.h));
-    return {verdict,vreason,long,short,frames:frameSummaries,duration,factors,indicators:{ema20:e20,ema50:e50,ema200:e200,rsi:r,atr:a,macd: m.hist[n-1],macdLine:m.line[n-1],macdSignal:m.sig[n-1],vr,imbalance,oidelta,funding,support:low48,resistance:high48,trend:e20>e50?'상승 배열':'하락 배열'},series:{ema20:e20a,ema50:e50a,rsi:rsia,macd:m.hist,macdLine:m.line,macdSignal:m.sig},closed,livePrice,updatedAt:Date.now(),reasonNotes:[`EMA20 ${e20>e50?'상승':'하락'} 배열 · EMA50 / EMA200 비교`,`RSI ${r.toFixed(1)}, MACD 변화 ${macdHist>macdPrev?'확대/개선':'감소/약화'}`,`최근 완성봉 거래량 ${vr.toFixed(2)}배`,imbalance===null?'호가 데이터 미수신':`호가 매수금액 비율 ${(imbalance*100).toFixed(1)}%`,oidelta===null?'OI 비교값 미수신':`OI 5분 변화 ${oidelta.toFixed(2)}%`,funding===null?'펀딩비 미수신':`펀딩비 ${(funding*100).toFixed(4)}%`,`지지 ${low48} / 저항 ${high48}`]};
+    return {verdict,vreason,long,short,strategy:profile,frames:frameSummaries,duration,factors,indicators:{ema20:e20,ema50:e50,ema200:e200,rsi:r,atr:a,macd: m.hist[n-1],macdLine:m.line[n-1],macdSignal:m.sig[n-1],vr,imbalance,oidelta,funding,support:low48,resistance:high48,trend:e20>e50?'상승 배열':'하락 배열'},series:{ema20:e20a,ema50:e50a,rsi:rsia,macd:m.hist,macdLine:m.line,macdSignal:m.sig},closed,livePrice,updatedAt:Date.now(),reasonNotes:[`EMA20 ${e20>e50?'상승':'하락'} 배열 · EMA50 / EMA200 비교`,`RSI ${r.toFixed(1)}, MACD 변화 ${macdHist>macdPrev?'확대/개선':'감소/약화'}`,`최근 완성봉 거래량 ${vr.toFixed(2)}배`,imbalance===null?'호가 데이터 미수신':`호가 매수금액 비율 ${(imbalance*100).toFixed(1)}%`,oidelta===null?'OI 비교값 미수신':`OI 5분 변화 ${oidelta.toFixed(2)}%`,funding===null?'펀딩비 미수신':`펀딩비 ${(funding*100).toFixed(4)}%`,`지지 ${low48} / 저항 ${high48}`]};
   }
-  return {analyze,ema,rsi,atr,macd,chooseZone,summarizeFrame,evaluateDurations,structuralTargets,leverageScenario};
+  return {analyze,ema,rsi,atr,macd,chooseZone,summarizeFrame,evaluateDurations,strategyConfig,structuralTargets,leverageScenario};
 })();
 if (typeof module!=='undefined'&&module.exports) module.exports=TradeEngine;

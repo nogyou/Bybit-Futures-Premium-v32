@@ -1,4 +1,4 @@
-name: Build Bybit Futures v3.2.3 APK
+name: Build Bybit Futures v3.2.5 APK
 on:
   push:
     branches: [main]
@@ -24,6 +24,6 @@ jobs:
         run: gradle :app:assembleDebug --no-daemon --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: Bybit-v323-StructuralTP-debug-APK
+          name: Bybit-v325-Horizon-Strategy-debug-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error

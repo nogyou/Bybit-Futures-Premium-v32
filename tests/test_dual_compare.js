@@ -1,0 +1,11 @@
+const assert=require('node:assert/strict');
+const C=require('../app/src/main/assets/comparison.js');
+const plan=side=>({kind:side,entry:100,stop:side==='LONG'?99:101,tp1:side==='LONG'?102:98,tp2:side==='LONG'?103:97,score:78,rr:1.6,confirmed:true,near:true,failed:[],tp1Reason:'test only'});
+const a={verdict:'LONG',strategy:{key:'scalp'},long:plan('LONG'),short:plan('SHORT')};
+let x=C.compare(a,{stale:false});assert.equal(x.verdict,'LONG');assert.equal(x.sides[0].ready,true);assert.equal(x.sides[1].ready,false);
+x=C.compare(a,{stale:true});assert.equal(x.verdict,'WAIT');assert(x.sides.every(z=>!z.ready));
+x=C.compare(a,{stale:false,risk:()=> '손실 예산 초과'});assert.equal(x.verdict,'WAIT');assert(x.sides.every(z=>!z.ready));
+x=C.compare({...a,verdict:'WAIT'},{stale:false});assert.equal(x.verdict,'WAIT');
+x=C.compare(null,{stale:false});assert.equal(x.verdict,'WAIT');assert.equal(x.sides.length,0);
+assert.deepEqual(C.MODES,['scalp','short','long']);
+console.log('PASS v3.2.6: LONG/SHORT independent comparison; stale, budget and missing data block entries.');
