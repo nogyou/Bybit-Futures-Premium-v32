@@ -62,6 +62,7 @@
 .trade-alert .alert-heading{display:flex;align-items:center;justify-content:space-between;gap:5px}
 .trade-alert .alert-heading strong{color:#d9e5ef;font-size:11px}
 .trade-alert .alert-heading button{font-size:9px;color:#aebecb;border:1px solid #52687b;background:#182b3c;border-radius:5px;padding:3px 6px;white-space:nowrap}
+.trade-alert .alert-heading button.sound-enabled{color:#ffe59a;border-color:#c7a14d;background:#4c3d1b}
 .trade-alert .alert-message{font-size:10px;color:#c8dce6;line-height:1.35;padding-top:2px}
 .trade-alert>small{display:block;color:#93aebd;font-size:9px;margin-top:1px}
 .trade-alert.long{border-color:#3bcf9b;background:#10372e}
@@ -93,7 +94,8 @@
 .position-numbers small{font-size:9px;color:#91b0c4;display:block}.position-numbers b{font-size:11px;color:#e6f3fb;overflow-wrap:anywhere}
 .position-reasons{margin-top:5px;font-size:9px;color:#b5cbdb}.position-footnote{margin-top:4px;font-size:8px;color:#8aa6ba}
 .position-actions{display:flex;justify-content:space-between;align-items:flex-end;gap:8px;margin-top:6px}.position-actions label{flex:1}.position-actions select{width:115px;max-width:100%}
-@media(orientation:portrait), (max-width:889px){.trade-alert{min-height:64px}.trade-alert .alert-heading strong{font-size:13px}.trade-alert .alert-message{font-size:12px}.position-head strong{font-size:13px}.position-intro,.position-summary{font-size:11px}.position-fields label{font-size:11px}.position-fields input{font-size:13px}}
+@media(orientation:portrait), (max-width:889px){.trade-alert{min-height:64px}.trade-alert .alert-heading strong{font-size:13px}.trade-alert .alert-heading button.sound-enabled{color:#ffe59a;border-color:#c7a14d;background:#4c3d1b}
+.trade-alert .alert-message{font-size:12px}.position-head strong{font-size:13px}.position-intro,.position-summary{font-size:11px}.position-fields label{font-size:11px}.position-fields input{font-size:13px}}
 
 /* v3.2.5: compact trade-horizon selector, no changes to chart sizing/zoom/candle count. */
 .mode-picker{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;flex-shrink:0;border:1px solid #385574;border-radius:8px;background:#0a1a2b;padding:6px}

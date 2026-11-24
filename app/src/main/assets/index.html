@@ -72,7 +72,7 @@
         <div class="dual-summary" id="dualSummary">현재가 진입 신호는 독립 확인 조건 충족 시에만 표시됩니다.</div>
       </section>
       <div class="trade-alert neutral" id="tradeAlert" role="status" aria-live="polite">
-        <div class="alert-heading"><strong id="tradeAlertTitle">◉ AI TRADE ALERT · 감시 대기</strong><button id="alertBlinkToggle" type="button" title="강한 신호 점멸 켜기/끄기">점멸 켜짐</button></div>
+        <div class="alert-heading"><strong id="tradeAlertTitle">◉ AI TRADE ALERT · 감시 대기</strong><button id="alertSoundToggle" type="button" title="진입 신호 소리 알림 (화면 실행 중에만)">소리 꺼짐</button><button id="alertBlinkToggle" type="button" title="강한 신호 점멸 켜기/끄기">점멸 켜짐</button></div>
         <div class="alert-message" id="tradeAlertText">진입 후보 구간 및 수급 확인 중</div><small id="tradeAlertTime">조건 미충족 · 매매 신호 아님</small>
       </div>
       <div class="strategy long"><div class="strategy-head"><strong>▲ LONG (매수) 후보</strong><span id="longState">조건 대기</span></div>
@@ -124,5 +124,5 @@
 </div>
 <div class="overlay hidden" id="overlay"><div class="dialog"><div class="dialog-head"><strong id="dialogTitle">상세 정보</strong><button id="dialogClose">✕</button></div><div id="dialogBody" class="dialog-body"></div></div></div>
 <div class="toast" id="toast"></div>
-<script src="engine.js"></script><script src="comparison.js"></script><script src="stream.js"></script><script src="chart.js"></script><script src="position.js"></script><script src="app.js"></script><script src="news.js"></script>
+<script src="engine.js"></script><script src="comparison.js"></script><script src="stream.js"></script><script src="chart.js"></script><script src="position.js"></script><script src="signal-alert.js"></script><script src="app.js"></script><script src="news.js"></script>
 </body></html>

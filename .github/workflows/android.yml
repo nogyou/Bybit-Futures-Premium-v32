@@ -1,4 +1,4 @@
-name: Build Bybit Futures v3.2.7 APK
+name: Build Bybit Futures v3.2.8 APK
 on:
   push:
     branches: [main]
@@ -24,6 +24,6 @@ jobs:
         run: gradle :app:assembleDebug --no-daemon --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: Bybit-v327-Clean-Chart-debug-APK
+          name: Bybit-v328-Signal-Alert-debug-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error

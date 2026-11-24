@@ -61,9 +61,25 @@
   function evidence(name,value,status='neutral'){const row=document.createElement('div');row.className='evidence-row';const bullet=document.createElement('span');bullet.className='ev-dot'+(status==='bad'?' bad':status==='neutral'?' warn':'');bullet.textContent=status==='bad'?'×':status==='neutral'?'○':'✓';const label=document.createElement('span');label.className='ev-name';label.textContent=name;const val=document.createElement('span');val.className='ev-val';val.textContent=value;row.append(bullet,label,val);return row;}
   // One manually recorded position, locally stored ONLY on this device. No API keys or orders.
   const POSITION_STORAGE='v324-manual-position';
-  let activePosition=null, blinkEnabled=true, lastTradeAlertKey='',lastTradeAlertAt=0,lastExitAlertKey='',lastExitAlertAt=0,lastPositionUi=0,lastPositionPersist=0;
+  let activePosition=null, blinkEnabled=true, soundEnabled=false, soundContext=null, lastExitAlertKey='',lastExitAlertAt=0,lastPositionUi=0,lastPositionPersist=0;
   try{const raw=JSON.parse(localStorage.getItem(POSITION_STORAGE)||'null');if(PositionEngine.validate(raw))activePosition=raw;
     blinkEnabled=localStorage.getItem('v324-blink')!=='off';}catch(_){}
+  // Web Audio may require a user gesture on Android WebView; OFF until the button is tapped.
+  function soundToggleUI(){const el=$('alertSoundToggle');el.textContent=soundEnabled?'소리 켜짐':'소리 꺼짐';el.classList.toggle('sound-enabled',soundEnabled);el.setAttribute('aria-pressed',String(soundEnabled));}
+  async function enableSoundFromTap(){
+    if(soundEnabled){soundEnabled=false;soundToggleUI();toast('진입 신호 소리 알림 꺼짐');return;}
+    try{const Ctx=window.AudioContext||window.webkitAudioContext;if(!Ctx)throw new Error('이 브라우저에서 소리 재생 불가');
+      soundContext??=new Ctx();await soundContext.resume();soundEnabled=soundContext.state==='running';soundToggleUI();toast(soundEnabled?'진입 신호 소리 켜짐 · 앱을 켜 둔 동안만':'소리 활성화 실패');
+    }catch(e){soundEnabled=false;soundToggleUI();toast('이 기기에서 소리 알림을 켤 수 없습니다.');}
+  }
+  function playSignalTone(side){
+    if(!soundEnabled||!soundContext||soundContext.state!=='running'||!state.enableRefresh)return;
+    try{const start=soundContext.currentTime;const notes=side==='LONG'?[660,880]:[880,600];
+      notes.forEach((hz,i)=>{const osc=soundContext.createOscillator(),gain=soundContext.createGain(),t=start+i*.18;
+        osc.type='sine';osc.frequency.value=hz;gain.gain.setValueAtTime(.0001,t);gain.gain.exponentialRampToValueAtTime(.1,t+.025);gain.gain.exponentialRampToValueAtTime(.0001,t+.16);
+        osc.connect(gain).connect(soundContext.destination);osc.start(t);osc.stop(t+.17);});
+    }catch(e){console.warn('알림 소리 재생 실패',e);}
+  }
   function storePosition(){try{if(activePosition)localStorage.setItem(POSITION_STORAGE,JSON.stringify(activePosition));else localStorage.removeItem(POSITION_STORAGE);}catch(_){toast('포지션 기록 저장 실패 · 기기 저장공간 확인');}}
   function positionPrice(){const p=Number(state.ticker?.lastPrice??state.liveMap[state.symbol]?.lastPrice);return Number.isFinite(p)&&p>0?p:NaN;}
   function positionMetrics(){
@@ -83,11 +99,12 @@
       $('tradeAlertText').textContent=`${activePosition.side} 진입 ${fmt(activePosition.entry)} · 현재 ${Number.isFinite(livePosition.price)?fmt(livePosition.price):'--'} · TP1 ${Number.isFinite(livePosition.tp1)?fmt(livePosition.tp1):'미산출'} · 제안 보호손절 ${fmt(livePosition.protectedStop)}`;
       $('tradeAlertTime').textContent=livePosition.validData?`최근 분석 ${timeFmt(state.lastAnalysis)} · 주문/체결 자동 실행 안 됨`:'데이터 지연 · 최신 청산 신호 아님';
       $('alertBlinkToggle').textContent=blinkEnabled?'점멸 켜짐':'점멸 꺼짐';
+      SignalAlerts.observe(state.symbol+'|'+state.strategyMode,'WAIT');
       return;
     }
     const maxAllowed=state.instrumentMax[state.symbol];const alert=PositionEngine.entryAlert({analysis:state.analysis,
       quoteAgeMs:Date.now()-(state.selectedLastTick||0),analysisAgeMs:Date.now()-(state.lastAnalysis||0),
-      bookAgeMs:Date.now()-(state.lastBook||0),riskGate:checkTradeRisk(state.analysis,state.analysis?.verdict),
+      bookAgeMs:Date.now()-(state.lastBook||0),riskGate:state.error||(!state.enableRefresh?'앱 비활성화 · 진입 보류':'')||checkTradeRisk(state.analysis,state.analysis?.verdict),
       maxLev:Number.isFinite(maxAllowed)?maxAllowed:NaN,leverage:state.leverage});
     const box=$('tradeAlert');box.className='trade-alert '+(alert.strong?alert.kind.toLowerCase():'neutral')+(alert.strong&&blinkEnabled?' alert-blink':'');
     $('tradeAlertTitle').textContent=alert.strong?'⚡ AI TRADE ALERT · '+alert.label:'◉ AI TRADE ALERT · '+alert.label;
@@ -95,10 +112,11 @@
       `${state.symbol} | 진입 ${fmt(alert.plan.entry)} · TP1 ${fmt(alert.plan.tp1)} · TP2 ${fmt(alert.plan.tp2)} · SL ${fmt(alert.plan.stop)}`:alert.detail;
     $('tradeAlertTime').textContent=alert.strong?`조건 확인 ${timeFmt(Date.now())} · 배율 ${state.leverage}x · 주문 전 직접 확인`:'※ 관심구간은 확정 매매 신호가 아닙니다.';
     $('alertBlinkToggle').textContent=blinkEnabled?'점멸 켜짐':'점멸 꺼짐';
-    const key=alert.strong?state.symbol+'-'+alert.kind:'';
-    if(key && (lastTradeAlertKey!==key||Date.now()-lastTradeAlertAt>120000)){
-      lastTradeAlertKey=key;lastTradeAlertAt=Date.now();toast(`⚡ ${state.symbol} ${alert.kind} 진입 조건 확인 · 앱에서 직접 검토`);
-    } else if(!key)lastTradeAlertKey='';
+    const transition=SignalAlerts.observe(state.symbol+'|'+state.strategyMode,alert.strong?alert.kind:'WAIT');
+    if(transition.transition){
+      toast(`⚡ ${state.symbol} ${state.strategyMode==='scalp'?'단타':state.strategyMode==='short'?'단기':'장기'} ${alert.kind} 진입 조건 확인 · 직접 검토`);
+      playSignalTone(alert.kind);
+    }
   }
   function beginPositionForm(){
     const form=$('positionForm');form.hidden=!form.hidden;
@@ -340,7 +358,7 @@
       state.analysis=TradeEngine.analyze(state.strategyCandles,current,state.orderbook,state.oi,opts);
       for(const [key,rec] of Object.entries(state.modeSnapshots)){if(!rec?.candles?.length||Date.now()-rec.at>75000)continue;try{rec.analysis=TradeEngine.analyze(rec.candles,current,state.orderbook,state.oi,{...opts,strategyMode:key});}catch(_){delete state.modeSnapshots[key];}}
       renderAnalysis();
-    }catch(e){$('verdictText').textContent='WAIT';$('verdictReason').textContent='분석 재평가 실패 · '+e.message;}
+    }catch(e){state.error='분석 재평가 실패 · '+e.message;clearAnalysis(state.error);}
   }
   async function loadOlder(oldest){if(!Number.isFinite(oldest)||oldest<=0)return [];
     const sym=state.symbol,tf=state.interval,seq=state.seq;
@@ -375,7 +393,7 @@
       state.lastAnalysis=Date.now();state.error='';state.modeSnapshots[state.strategyMode]={analysis:state.analysis,at:state.lastAnalysis,candles:strategyCandles};renderHeader();renderAnalysis();
       // 배경 요약은 실제 각 모드 240개 캔들로 별도 계산. 실패 모드는 WAIT.
       loadModeSnapshots(sym,seq,tf,ticker,candles).catch(()=>{});setStatus('Bybit 공개 API · 분석 갱신',state.streamReady?'ok':'warn');$('lastUpdate').textContent='분석 '+timeFmt(state.lastAnalysis)+(state.streamReady?' · 시세 WS':' · REST 폴백');
-      if(state.analysis.long.near||state.analysis.short.near){const msg=state.analysis.long.near?'LONG 후보 가격 도달':'SHORT 후보 가격 도달';if(!state._lastAlert||Date.now()-state._lastAlert>90000){toast(msg+' · 확인 조건 재평가 완료');state._lastAlert=Date.now();}}
+      // Candidate-price arrival alone is NOT a confirmed signal or an audible alert.
     }catch(err){if(seq===state.seq){state.error='분석 중단: '+(err?.message||String(err));setStatus('분석 오류 / WAIT','err');clearAnalysis(state.error);}}
     finally{state.pollDetail=false;if(seq!==state.seq)queueMicrotask(loadDetail);}}
   function setSort(s){state.sort=s;$('marketList').scrollTop=0;renderMarket();$('sortChange').classList.toggle('sort-active',s.startsWith('change'));$('sortPrice').classList.toggle('sort-active',s.startsWith('price'));}
@@ -384,7 +402,7 @@
       market:['시장지표',a?`<h3>${state.symbol} 지표</h3><p>EMA20 ${fmt(a.indicators.ema20)} / EMA50 ${fmt(a.indicators.ema50)} / EMA200 ${fmt(a.indicators.ema200)}</p><p>RSI14 ${a.indicators.rsi.toFixed(1)} / ATR14 ${fmt(a.indicators.atr)} / MACD 히스토그램 ${a.indicators.macd.toFixed(4)}</p><p>호가 매수 비중 ${a.indicators.imbalance===null?'미수신':(a.indicators.imbalance*100).toFixed(1)+'%'} / OI 변화 ${a.indicators.oidelta===null?'미수신':pct(a.indicators.oidelta)} / 펀딩비 ${a.indicators.funding===null?'미수신':(a.indicators.funding*100).toFixed(4)+'%'}</p><p>전체 시장은 왼쪽에서 상승순·하락순·거래대금순으로 정렬할 수 있습니다.</p>`:'<p>먼저 API 데이터를 수신해야 합니다.</p>'],
       backtest:['백테스트 / 성과 검증','<h3>아직 구현되지 않았습니다</h3><p>백테스트 성과나 검증된 승률을 제공하는 것처럼 표시하지 않습니다. 실전 매매에 사용하기 전에 매수·매도 신호를 기록하고, 수수료와 슬리피지 및 봉 단위 체결 제약을 반영한 워크포워드 검증이 필요합니다.</p>'],
       paper:['모의매매','<h3>모의매매 실행 기능은 아직 없습니다</h3><p>실제 주문 기능도 없으며 API 키를 사용하지 않습니다. 현재는 공개 시세에 따른 전략 <b>후보 계산 및 조건부 진입 신호</b>만 수행합니다.</p>'],
-      alerts:['진입·청산 알림','<h3>AI TRADE ALERT · AI POSITION MANAGER</h3><p>완성봉/호가/수급/손익비와 사용자 배율 조건을 확인한 신호는 오른쪽 AI 패널에서 강조합니다. 수동 포지션 등록 후 보유·분할 익절·종료 검토도 표시합니다.</p><p>이 앱에는 실제 주문·체결 확인·백그라운드 푸시가 없습니다. 신호는 화면이 열려 있을 때만 갱신되고, 반복 알림은 제한합니다. 점멸은 패널 버튼으로 끌 수 있습니다.</p>'],
+      alerts:['진입·청산 알림','<h3>AI TRADE ALERT · AI POSITION MANAGER</h3><p>완성봉/호가/수급/손익비와 사용자 배율 조건을 확인한 신호는 오른쪽 AI 패널에서 강조합니다. 수동 포지션 등록 후 보유·분할 익절·종료 검토도 표시합니다.</p><p>이 앱에는 실제 주문·체결 확인·백그라운드 푸시가 없습니다. 신호는 화면이 열려 있을 때만 갱신되고, WAIT에서 확인된 LONG/SHORT로 전환될 때만 (동일 방향 2분 재알림 제한) 메시지와 선택형 소리를 재생합니다. 소리는 사용자 버튼 조작 후 켜지며, 백그라운드에서는 작동하지 않습니다. 점멸은 패널 버튼으로 끌 수 있습니다.</p>'],
       settings:['분석 설정',`<h3>추정 비용</h3><p>진입·청산 양쪽의 비용을 손익비에 반영합니다. 실제 계정 수수료와 시장 충격에 따라 다릅니다.</p><label>편도 수수료 (%) <input id="feeInput" type="number" step="0.01" min="0" max="1" value="${(state.fee*100).toFixed(3)}" style="background:#18364c;color:#fff;width:85px;border:1px solid #486c8b;padding:6px"></label><p><label>편도 예상 슬리피지 (%) <input id="slipInput" type="number" step="0.01" min="0" max="1" value="${(state.slip*100).toFixed(3)}" style="background:#18364c;color:#fff;width:85px;border:1px solid #486c8b;padding:6px"></label></p><button id="saveSettings" style="background:#ab7920;color:#fff;padding:8px 18px;border-radius:6px">설정 적용</button><h3>데이터 출처</h3><p>Bybit V5 공개시장 WebSocket 시세 · REST 폴백. 분석은 45초 주기. API 접속 불가시 신호는 WAIT.</p>`]
     };
     const [title,body]=detail[page]||detail.analysis;$('dialogTitle').textContent=title;$('dialogBody').innerHTML=body;$('overlay').classList.remove('hidden');const save=$('saveSettings');if(save)save.onclick=()=>{const fee=Math.max(0,Math.min(.01,Number($('feeInput').value)/100));const slip=Math.max(0,Math.min(.01,Number($('slipInput').value)/100));if(!Number.isFinite(fee)||!Number.isFinite(slip)){toast('숫자를 확인하세요');return;}state.fee=fee;state.slip=slip;try{localStorage.setItem('v32-fee',String(fee));localStorage.setItem('v32-slip',String(slip));}catch(_){}closeOverlay();loadDetail();toast('설정 적용 완료');};
@@ -398,11 +416,12 @@
     $('positionSave').addEventListener('click',saveManualPosition);
     $('positionRemaining').addEventListener('change',e=>{if(!activePosition)return;activePosition.remainingPct=Number(e.target.value);storePosition();renderPosition();toast('남은 비율 기록 변경 · 실제 거래소 주문과 무관');});
     $('positionStopTrack').addEventListener('click',()=>{if(!activePosition)return;if(!window.confirm('이 앱의 수동 추적 기록을 종료할까요? 거래소 포지션을 청산하지는 않습니다.'))return;activePosition=null;storePosition();renderEntryAlert();renderPosition();});
+    $('alertSoundToggle').addEventListener('click',enableSoundFromTap);soundToggleUI();
     $('alertBlinkToggle').addEventListener('click',()=>{blinkEnabled=!blinkEnabled;try{localStorage.setItem('v324-blink',blinkEnabled?'on':'off');}catch(_){}renderEntryAlert();});
 $('leverageRange').addEventListener('input',e=>{state.leverage=Number(e.target.value);if(state.analysis)renderAnalysis();else renderLeverage();});
     $('leverageNumber').addEventListener('change',e=>{const raw=Number(e.target.value);const max=state.instrumentMax[state.symbol];const cap=Number.isFinite(max)&&max>=1?Math.min(100,Math.floor(max)):100;state.leverage=Number.isFinite(raw)&&raw>=1?Math.max(1,Math.min(cap,Math.round(raw))):state.leverage;if(state.analysis)renderAnalysis();else renderLeverage();});
     $('leverageNumber').addEventListener('keydown',e=>{if(e.key==='Enter'){e.currentTarget.blur();}});$('marginInput').addEventListener('change',e=>{state.margin=Math.max(1,Number(e.target.value)||100);if(state.analysis)renderAnalysis();else renderLeverage();});$('marginMode').addEventListener('change',e=>{state.marginMode=e.target.value;if(state.analysis)renderAnalysis();else renderLeverage();});$('lossBudgetInput').addEventListener('change',e=>{state.lossBudget=Math.max(1,Number(e.target.value)||10);if(state.analysis)renderAnalysis();else renderLeverage();});$('searchSymbol').addEventListener('input',e=>{state.filter=e.target.value.trim();$('marketList').scrollTop=0;renderMarket();});$('clearSearch').addEventListener('click',()=>{$('searchSymbol').value='';state.filter='';renderMarket();});$('allTab').addEventListener('click',()=>{state.favsOnly=false;renderMarket();});$('favTab').addEventListener('click',()=>{state.favsOnly=true;renderMarket();});document.querySelectorAll('[data-sort]').forEach(b=>b.addEventListener('click',()=>setSort(b.dataset.sort)));$('sortChange').addEventListener('click',()=>setSort(state.sort==='change-desc'?'change-asc':'change-desc'));$('sortPrice').addEventListener('click',()=>setSort(state.sort==='price-desc'?'price-asc':'price-desc'));$('marketReload').addEventListener('click',()=>{loadMarket();loadDetail();});$('heroFav').addEventListener('click',()=>toggleFav(state.symbol));document.querySelectorAll('[data-tf]').forEach(b=>b.addEventListener('click',()=>{state.interval=b.dataset.tf;state.seq++;document.querySelectorAll('[data-tf]').forEach(x=>x.classList.toggle('selected',x===b));TradeChart.reset();clearAnalysis('');loadDetail();}));document.querySelectorAll('[data-page]').forEach(b=>b.addEventListener('click',()=>{const page=b.dataset.page;if(page==='home'){closeOverlay();return;}detailDialog(page);}));$('dialogClose').addEventListener('click',closeOverlay);$('overlay').addEventListener('click',e=>{if(e.target.id==='overlay')closeOverlay();});$('fullscreenBtn').addEventListener('click',()=>{if(window.AndroidBridge){toast('태블릿에서는 전체 화면으로 실행됩니다.');return;}if(!document.fullscreenElement){document.documentElement.requestFullscreen?.().catch(()=>{});}else{document.exitFullscreen?.();}});
-    window.addEventListener('visibilitychange',()=>{state.enableRefresh=!document.hidden;if(document.hidden){state.stream?.stop();}else{startStream([...(state.universe||new Set(state.tickers.map(x=>x.symbol)))]);loadMarket();loadDetail();}});
+    window.addEventListener('visibilitychange',()=>{state.enableRefresh=!document.hidden;if(document.hidden){state.stream?.stop();SignalAlerts.observe(state.symbol+'|'+state.strategyMode,'WAIT');}else{startStream([...(state.universe||new Set(state.tickers.map(x=>x.symbol)))]);loadMarket();loadDetail();}});
     setInterval(()=>{if(!state.enableRefresh)return;if(!state.stream?.connected()||Date.now()-(state.selectedLastTick||state.lastMarket)>25000){state.streamReady=!!state.stream?.connected();loadMarket();}},15000);
     setInterval(()=>{if(!state.enableRefresh)return;loadMarket();},60000);
     setInterval(()=>{if(!state.enableRefresh)return;loadDetail();},45000);
