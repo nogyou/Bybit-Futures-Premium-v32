@@ -1,5 +1,4 @@
-
-name: Build Bybit Futures v3.3.3 APK
+name: Build Bybit Futures v3.3.4 APK
 
 on:
   push:
@@ -15,11 +14,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Apply v3.3.3 source
+      - name: Apply v3.3.4 source
         run: |
-          unzip -o Bybit-Futures-Premium-v3.3.3-Trade-Quality-Source.zip
-          grep -n 'versionName' app/build.gradle.kts | grep '3\.3\.3'
-          grep -n 'android:label' app/src/main/AndroidManifest.xml
+          unzip -o Bybit-Futures-Premium-v3.3.4-Live-Scalping-Source.zip
+          grep -n 'versionName' app/build.gradle.kts | grep '3\.3\.4'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Check trading strategy logic
+        run: |
+          for file in tests/*.js; do node "$file"; done
 
       - uses: actions/setup-java@v4
         with:
@@ -39,6 +45,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Bybit-v333-Trade-Quality-debug-APK
+          name: Bybit-v334-Live-Scalping-debug-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
