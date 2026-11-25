@@ -1,5 +1,5 @@
 
-name: Build Bybit Futures v3.3.6 APK
+name: Build Bybit Futures v3.3.7 APK
 
 on:
   push:
@@ -15,16 +15,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Apply v3.3.6 source
+      - name: Apply v3.3.7 source
         run: |
-          unzip -o Bybit-Futures-Premium-v3.3.6-Scenario-Verification-Source.zip
-          grep -n 'versionName' app/build.gradle.kts | grep '3\.3\.6'
+          unzip -o Bybit-Futures-Premium-v3.3.7-Candidate-Continuity-Source.zip
+          grep -n 'versionName' app/build.gradle.kts | grep '3\.3\.7'
+          grep -n 'android:label' app/src/main/AndroidManifest.xml | grep '3.3.7'
 
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
 
-      - name: Check trading strategy logic
+      - name: Verify independent candidate tracking and existing analysis tests
         run: |
           for file in tests/*.js; do node "$file"; done
 
@@ -46,6 +47,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Bybit-v336-Scenario-Verification-debug-APK
+          name: Bybit-v337-Candidate-Continuity-debug-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
