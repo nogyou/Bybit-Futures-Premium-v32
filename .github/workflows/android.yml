@@ -1,5 +1,5 @@
 
-name: Build Bybit Futures v3.3.8 APK
+name: Build Bybit Futures v3.3.8 Fast Tape APK
 
 on:
   push:
