@@ -1,4 +1,5 @@
-name: Build Bybit Futures v3.3.4 APK
+
+name: Build Bybit Futures v3.3.6 APK
 
 on:
   push:
@@ -14,10 +15,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Apply v3.3.4 source
+      - name: Apply v3.3.6 source
         run: |
-          unzip -o Bybit-Futures-Premium-v3.3.4-Live-Scalping-Source.zip
-          grep -n 'versionName' app/build.gradle.kts | grep '3\.3\.4'
+          unzip -o Bybit-Futures-Premium-v3.3.6-Scenario-Verification-Source.zip
+          grep -n 'versionName' app/build.gradle.kts | grep '3\.3\.6'
 
       - uses: actions/setup-node@v4
         with:
@@ -45,6 +46,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Bybit-v334-Live-Scalping-debug-APK
+          name: Bybit-v336-Scenario-Verification-debug-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
